@@ -18,6 +18,26 @@ const newsreader = Newsreader({
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
+
+  const verification: Record<string, string | string[]> = {};
+  if (settings.google_verification) {
+    verification.google = settings.google_verification;
+  }
+  if (settings.yandex_verification) {
+    verification.yandex = settings.yandex_verification;
+  }
+  if (settings.bing_verification) {
+    verification.bing = settings.bing_verification;
+  }
+
+  const otherMeta: Record<string, string> = {};
+  if (settings.bing_verification) {
+    otherMeta["msvalidate.01"] = settings.bing_verification;
+  }
+  if (settings.pinterest_verification) {
+    otherMeta["p:domain_verify"] = settings.pinterest_verification;
+  }
+
   return {
     title: {
       default: settings.default_seo_title,
@@ -30,9 +50,8 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: settings.site_name,
     },
     twitter: { card: "summary_large_image" },
-    verification: settings.google_verification
-      ? { google: settings.google_verification }
-      : undefined,
+    verification: Object.keys(verification).length > 0 ? verification : undefined,
+    other: Object.keys(otherMeta).length > 0 ? otherMeta : undefined,
   };
 }
 

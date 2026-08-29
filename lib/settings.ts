@@ -10,6 +10,9 @@ export type SiteSettings = {
   social_twitter: string;
   social_instagram: string;
   google_verification: string;
+  bing_verification: string;
+  pinterest_verification: string;
+  yandex_verification: string;
   default_seo_title: string;
   default_seo_description: string;
   logo_url?: string;
@@ -18,17 +21,20 @@ export type SiteSettings = {
 };
 
 const DEFAULT_SETTINGS: SiteSettings = {
-  site_name: 'StoryFlow',
+  site_name: 'StoryPulse',
   site_description: 'Premium Web Stories Publishing Platform',
   site_url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-  publisher_name: 'StoryFlow Media',
-  contact_email: 'hello@storyflow.com',
-  footer_text: '© 2026 StoryFlow. All rights reserved.',
+  publisher_name: 'StoryPulse Media',
+  contact_email: 'hello@storypulse.com',
+  footer_text: '© 2026 StoryPulse Media. All rights reserved.',
   social_twitter: '',
   social_instagram: '',
   google_verification: '',
-  default_seo_title: 'StoryFlow — Premium Web Stories',
-  default_seo_description: 'Discover engaging Web Stories across news, travel, food, technology, and more.',
+  bing_verification: '',
+  pinterest_verification: '',
+  yandex_verification: '',
+  default_seo_title: 'StoryPulse — Visual Web Stories Network',
+  default_seo_description: 'Discover immersive 9:16 visual Web Stories across news, tech, culture, and lifestyle.',
 };
 
 let cachedSettings: { data: SiteSettings; timestamp: number } | null = null;
