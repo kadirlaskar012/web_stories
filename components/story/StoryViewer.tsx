@@ -102,13 +102,11 @@ export function StoryViewer({
     return () => cancelAnimationFrame(rafRef.current);
   }, [currentPage, isPaused, isHolding, duration, goNext, pages.length]);
 
-  // Reset progress on page change
   useEffect(() => {
     progressRef.current = 0;
     setProgress(0);
   }, [currentPage]);
 
-  // Keyboard controls
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === "ArrowDown") goNext();
@@ -146,20 +144,17 @@ export function StoryViewer({
       return;
     }
 
-    // Swipe down to close
     if (diffY > 90 && Math.abs(diffX) < 60) {
       onClose?.();
       return;
     }
 
-    // Horizontal swipe
     if (Math.abs(diffX) > 45) {
       if (diffX < 0) goNext();
       else goPrev();
       return;
     }
 
-    // Left 30% / Right 70% tap
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
       const x = e.changedTouches[0].clientX - rect.left;
@@ -234,6 +229,10 @@ export function StoryViewer({
   const quoteAuthor = layoutMeta.quoteAuthor || "";
   const rankNumber = layoutMeta.rankNumber || "01";
 
+  const hStyle = layoutMeta.headlineStyle || {};
+  const dStyle = layoutMeta.descriptionStyle || {};
+  const imgStyle = layoutMeta.imageStyle || {};
+
   const statsList: DataFactItem[] = layoutMeta.statsList || [
     { icon: "users", stat: "272K", label: "Jobs added in May", subtext: "vs. 165K in April" },
     { icon: "trending", stat: "3.9%", label: "Unemployment Rate", subtext: "Unchanged from April" },
@@ -249,6 +248,7 @@ export function StoryViewer({
   ];
 
   const isLight = layoutType === "split-screen-card" || layoutType === "polaroid-photo-frame";
+  const hasCta = !!ctaElement;
 
   return (
     <div
@@ -303,9 +303,19 @@ export function StoryViewer({
         {layoutType === "breaking-bold" && (
           <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white">
             {bgElement && (bgElement.content as any)?.src && (
-              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover" priority />
+              <Image
+                src={(bgElement.content as any).src}
+                alt=""
+                fill
+                className="object-cover"
+                style={{
+                  transform: `scale(${imgStyle.scale || 1})`,
+                  objectPosition: imgStyle.objectPosition || "center",
+                }}
+                priority
+              />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/60 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/60 pointer-events-none" />
 
             <div className="relative z-20 pt-8 flex items-center justify-between">
               <span className="px-2.5 py-1 rounded bg-red-600 font-black text-xs tracking-wider text-white shadow">
@@ -314,22 +324,38 @@ export function StoryViewer({
               <span className="text-xs text-white/80 font-medium">Live Dispatch</span>
             </div>
 
-            <div className="relative z-20 space-y-3 pb-4">
+            <div className={`relative z-20 space-y-3 ${hasCta ? "pb-20" : "pb-4"}`}>
               <span className="inline-block px-3 py-1 rounded bg-red-600 text-white font-black text-xs uppercase tracking-widest shadow-xl">
                 {badgeText}
               </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight uppercase drop-shadow">
+              <h1
+                style={{
+                  fontSize: `${hStyle.fontSize || 28}px`,
+                  fontWeight: hStyle.fontWeight || "900",
+                  fontStyle: hStyle.fontStyle || "normal",
+                  textDecoration: hStyle.textDecoration || "none",
+                  textAlign: hStyle.textAlign || "left",
+                  color: hStyle.color || "#ffffff",
+                }}
+                className="leading-tight uppercase drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]"
+              >
                 {headingText}
               </h1>
-              <p className="text-sm text-slate-200 leading-snug drop-shadow line-clamp-3">
+              <p
+                style={{
+                  fontSize: `${dStyle.fontSize || 14}px`,
+                  fontWeight: dStyle.fontWeight || "normal",
+                  fontStyle: dStyle.fontStyle || "normal",
+                  textDecoration: dStyle.textDecoration || "none",
+                  textAlign: dStyle.textAlign || "left",
+                  color: dStyle.color || "#e2e8f0",
+                }}
+                className="leading-snug drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3"
+              >
                 {descriptionText}
               </p>
               <div className="text-xs font-bold text-red-400 border-l-2 border-red-500 pl-2 uppercase tracking-wide">
                 {locationDate}
-              </div>
-              <div className="pt-3 flex flex-col items-center justify-center text-white/80 animate-bounce">
-                <ChevronUp className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
               </div>
             </div>
           </div>
@@ -344,7 +370,7 @@ export function StoryViewer({
               </div>
             )}
 
-            <div className="space-y-3 my-auto">
+            <div className={`space-y-3 my-auto ${hasCta ? "pb-16" : ""}`}>
               <span className="inline-block px-3 py-1 rounded bg-slate-950 text-white font-black text-xs">
                 {badgeText}
               </span>
@@ -355,11 +381,6 @@ export function StoryViewer({
               <p className="text-sm text-slate-800 leading-relaxed font-sans line-clamp-4">
                 {descriptionText}
               </p>
-            </div>
-
-            <div className="flex flex-col items-center justify-center text-slate-600 animate-bounce">
-              <ChevronUp className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP</span>
             </div>
           </div>
         )}
@@ -384,17 +405,13 @@ export function StoryViewer({
               </div>
             )}
 
-            <div className="relative z-10 space-y-2 pb-4">
-              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+            <div className={`relative z-10 space-y-2 ${hasCta ? "pb-20" : "pb-4"}`}>
+              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow">
                 {headingText}
               </h2>
               <p className="text-sm text-slate-300 leading-relaxed line-clamp-3">
                 {descriptionText}
               </p>
-              <div className="pt-2 flex flex-col items-center justify-center text-amber-400 animate-bounce">
-                <ChevronUp className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
-              </div>
             </div>
           </div>
         )}
@@ -407,22 +424,17 @@ export function StoryViewer({
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent pointer-events-none" />
 
-            <div className="relative z-20 my-auto p-6 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl space-y-3">
+            <div className={`relative z-20 my-auto p-6 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl space-y-3 ${hasCta ? "mb-16" : ""}`}>
               <span className="inline-block px-3 py-1 rounded bg-cyan-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow">
                 {badgeText}
               </span>
-              <h2 className="text-2xl font-black text-white leading-tight">
+              <h2 className="text-2xl font-black text-white leading-tight drop-shadow">
                 {headingText}
               </h2>
               <p className="text-xs text-cyan-300 font-mono font-bold">{subheadText}</p>
               <p className="text-sm text-slate-200 leading-relaxed">
                 {descriptionText}
               </p>
-            </div>
-
-            <div className="relative z-20 flex flex-col items-center justify-center text-cyan-400 animate-bounce pb-2">
-              <ChevronUp className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR SPECS</span>
             </div>
           </div>
         )}
@@ -451,12 +463,8 @@ export function StoryViewer({
               </p>
             </div>
 
-            <div className="space-y-2 pb-2">
+            <div className={`space-y-2 ${hasCta ? "pb-16" : "pb-2"}`}>
               <p className="text-xs text-slate-700 leading-relaxed line-clamp-2">{descriptionText}</p>
-              <div className="flex flex-col items-center justify-center text-slate-500 animate-bounce">
-                <ChevronUp className="w-4 h-4" />
-                <span className="text-[9px] font-black uppercase tracking-widest">SWIPE UP</span>
-              </div>
             </div>
           </div>
         )}
@@ -473,7 +481,7 @@ export function StoryViewer({
               </h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 my-auto">
+            <div className={`grid grid-cols-2 gap-3 my-auto ${hasCta ? "mb-16" : ""}`}>
               {statsList.map((item, idx) => {
                 const Icon =
                   item.icon === "users"
@@ -504,10 +512,6 @@ export function StoryViewer({
 
             <div className="space-y-2 text-center pb-2">
               <p className="text-[10px] text-slate-400">{sourceText}</p>
-              <div className="flex flex-col items-center justify-center text-cyan-400 animate-bounce">
-                <ChevronUp className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
-              </div>
             </div>
           </div>
         )}
@@ -526,7 +530,7 @@ export function StoryViewer({
               <p className="text-xs text-slate-400">{locationDate}</p>
             </div>
 
-            <div className="border-l-2 border-red-600 pl-4 space-y-4 my-auto">
+            <div className={`border-l-2 border-red-600 pl-4 space-y-4 my-auto ${hasCta ? "mb-16" : ""}`}>
               {timelineList.map((item, idx) => (
                 <div key={idx} className="relative">
                   <div className="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-red-600 ring-4 ring-[#0d0f15]" />
@@ -535,11 +539,6 @@ export function StoryViewer({
                 </div>
               ))}
             </div>
-
-            <div className="flex flex-col items-center justify-center text-white/80 animate-bounce pb-2">
-              <ChevronUp className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
-            </div>
           </div>
         )}
 
@@ -547,7 +546,7 @@ export function StoryViewer({
         {layoutType === "big-quote-spotlight" && (
           <div className="absolute inset-0 flex flex-col justify-between p-6 pt-16 z-10 bg-zinc-950 text-white text-center">
             <span className="text-6xl text-amber-400 font-serif leading-none">“</span>
-            <div className="space-y-4 my-auto">
+            <div className={`space-y-4 my-auto ${hasCta ? "mb-16" : ""}`}>
               {bgElement && (bgElement.content as any)?.src && (
                 <div className="relative w-20 h-20 rounded-full overflow-hidden mx-auto ring-4 ring-amber-400/40 shadow-2xl">
                   <Image src={(bgElement.content as any).src} alt="" fill className="object-cover" />
@@ -560,13 +559,7 @@ export function StoryViewer({
                 — {quoteAuthor || "Senior Columnist"}
               </cite>
             </div>
-            <div className="space-y-2 pb-2">
-              <p className="text-xs text-slate-400">{descriptionText}</p>
-              <div className="flex flex-col items-center justify-center text-amber-400 animate-bounce">
-                <ChevronUp className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP TO READ</span>
-              </div>
-            </div>
+            <p className="text-xs text-slate-400 pb-2">{descriptionText}</p>
           </div>
         )}
 
@@ -581,7 +574,7 @@ export function StoryViewer({
               <p className="text-xs text-indigo-300 font-mono">{subheadText}</p>
             </div>
 
-            <div className="relative space-y-3 my-auto">
+            <div className={`relative space-y-3 my-auto ${hasCta ? "mb-16" : ""}`}>
               <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/40 shadow-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-cyan-300">Quantum Neural</span>
@@ -601,11 +594,6 @@ export function StoryViewer({
                 </div>
                 <p className="text-xs text-slate-300 mt-1">35W High Power · Cloud Delay Required</p>
               </div>
-            </div>
-
-            <div className="flex flex-col items-center justify-center text-indigo-400 animate-bounce pb-2">
-              <ChevronUp className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR DETAILS</span>
             </div>
           </div>
         )}
@@ -628,22 +616,10 @@ export function StoryViewer({
               <p className="font-serif italic text-base text-pink-400 font-bold">{subheadText}</p>
             </div>
 
-            <div className="relative z-20 space-y-4 pb-4">
+            <div className={`relative z-20 space-y-4 ${hasCta ? "pb-20" : "pb-4"}`}>
               <p className="text-xs sm:text-sm text-slate-200 line-clamp-3 leading-snug drop-shadow">
                 {descriptionText}
               </p>
-              <div
-                className="w-full py-3.5 px-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm shadow-2xl flex items-center justify-center gap-2 transition-transform hover:scale-105 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (ctaElement && (ctaElement.content as any)?.url) {
-                    window.location.href = (ctaElement.content as any).url;
-                  }
-                }}
-              >
-                <span>{ctaElement ? (ctaElement.content as any)?.label : "SWIPE UP FOR INTERVIEW"}</span>
-                <ArrowRight className="w-4 h-4" />
-              </div>
             </div>
           </div>
         )}
@@ -665,7 +641,7 @@ export function StoryViewer({
               </div>
             )}
 
-            <div className="space-y-2 my-auto">
+            <div className={`space-y-2 my-auto ${hasCta ? "mb-16" : ""}`}>
               {[
                 { num: "01", text: "Boil fresh pasta 90 seconds in salted water." },
                 { num: "02", text: "Swirl French butter with starchy water to form emulsion." },
@@ -678,11 +654,6 @@ export function StoryViewer({
                   <span className="text-xs text-slate-200">{st.text}</span>
                 </div>
               ))}
-            </div>
-
-            <div className="flex flex-col items-center justify-center text-amber-400 animate-bounce pb-2">
-              <ChevronUp className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR RECIPE</span>
             </div>
           </div>
         )}
@@ -708,7 +679,7 @@ export function StoryViewer({
               </div>
             )}
 
-            <div className="space-y-3 pb-2">
+            <div className={`space-y-3 ${hasCta ? "pb-20" : "pb-2"}`}>
               <h2 className="text-base font-black text-white">{headingText}</h2>
               <div className="flex gap-2">
                 <div className="flex-1 p-2 bg-white/10 rounded-xl text-center border border-white/10">
@@ -724,11 +695,32 @@ export function StoryViewer({
                   <span className="text-[9px] uppercase text-slate-400 font-bold">ASSISTS</span>
                 </div>
               </div>
-              <div className="flex flex-col items-center justify-center text-orange-400 animate-bounce pt-1">
-                <ChevronUp className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR HIGHLIGHTS</span>
-              </div>
             </div>
+          </div>
+        )}
+
+        {/* ─── DEDICATED BOTTOM CTA BAR (PINNED AT SAFE ZONE - ZERO OVERLAP) ─── */}
+        {hasCta ? (
+          <div
+            className="absolute bottom-6 inset-x-6 z-30"
+            onClick={(e) => {
+              e.stopPropagation();
+              if ((ctaElement.content as any)?.url) {
+                window.location.href = (ctaElement.content as any).url;
+              }
+            }}
+          >
+            <div className="w-full py-3.5 px-6 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm shadow-2xl flex items-center justify-center gap-2 transition-transform hover:scale-105 cursor-pointer">
+              <span>{(ctaElement.content as any)?.label || "Swipe Up for Details"}</span>
+              <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        ) : (
+          <div className="absolute bottom-4 inset-x-0 z-20 flex flex-col items-center justify-center text-white/80 animate-bounce pointer-events-none">
+            <ChevronUp className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              SWIPE UP FOR MORE
+            </span>
           </div>
         )}
 
