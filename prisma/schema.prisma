@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -182,11 +182,11 @@ model StoryElement {
   pageId    String
   page      StoryPage   @relation(fields: [pageId], references: [id], onDelete: Cascade)
   type      ElementType
-  content   Json        @default("{}")
-  position  Json        @default("{\"x\": 0, \"y\": 0}")
-  size      Json        @default("{\"width\": 100, \"height\": 50}")
-  style     Json        @default("{}")
-  animation Json        @default("{}")
+  content   Json
+  position  Json
+  size      Json
+  style     Json?
+  animation Json?
   link      String?
   altText   String?
   order     Int         @default(0)
@@ -243,7 +243,7 @@ model AnalyticsEvent {
   eventType EventType
   sessionId String?
   pageIndex Int?
-  metadata  Json?     @default("{}")
+  metadata  Json?
   createdAt DateTime  @default(now())
 
   @@index([storyId])
@@ -270,7 +270,7 @@ model ActivityLog {
   action     String
   entityType String?
   entityId   String?
-  metadata   Json?    @default("{}")
+  metadata   Json?
   createdAt  DateTime @default(now())
 
   @@index([userId])

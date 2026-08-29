@@ -166,7 +166,7 @@ export function StoryViewer({
           style={{ backgroundColor: bgColor }}
         />
 
-        {bgElement && (bgElement.content as { src?: string }).src && (
+        {bgElement && (bgElement.content as { src?: string })?.src && (
           <Image
             src={(bgElement.content as { src: string }).src}
             alt=""
@@ -174,7 +174,7 @@ export function StoryViewer({
             className="object-cover"
             style={{
               opacity:
-                typeof (bgElement.style as { opacity?: number }).opacity ===
+                typeof (bgElement.style as { opacity?: number } | null)?.opacity ===
                 "number"
                   ? (bgElement.style as { opacity: number }).opacity
                   : 1,
@@ -245,19 +245,19 @@ export function StoryViewer({
 
         {/* Text Elements */}
         {textElements.map((el) => {
-          const content = el.content as { text?: string };
-          const pos = el.position as { x: number; y: number };
-          const size = el.size as { width: number; height: number };
-          const style = el.style as Record<string, number | string>;
+          const content = (el.content as { text?: string }) || {};
+          const pos = (el.position as { x: number; y: number }) || { x: 0, y: 0 };
+          const size = (el.size as { width: number; height: number }) || { width: 100, height: 50 };
+          const style = (el.style as Record<string, number | string>) || {};
 
           return (
             <div
               key={el.id}
               className="absolute z-10 pointer-events-none"
               style={{
-                left: `${pos.x}%`,
-                top: `${pos.y}%`,
-                width: `${size.width}%`,
+                left: `${pos.x ?? 0}%`,
+                top: `${pos.y ?? 0}%`,
+                width: `${size.width ?? 100}%`,
               }}
             >
               <p
