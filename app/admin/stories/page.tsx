@@ -3,7 +3,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/ui/Badge";
 import { StoryStatus } from "@prisma/client";
 import { formatDateShort } from "@/lib/utils";
-import { Plus, Edit, Trash2, Eye, Copy } from "lucide-react";
+import { Plus, Edit, Eye, Filter, Sparkles, Layers } from "lucide-react";
 import { ServerPagination } from "@/components/ui/Pagination";
 import StoryActions from "./StoryActions";
 
@@ -65,131 +65,134 @@ export default async function AdminStoriesPage({ searchParams }: Props) {
   ];
 
   return (
-    <div className="max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Stories</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{total} total stories</p>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+            <Layers className="w-6 h-6 text-red-600" />
+            <span>Web Stories Studio</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">{total} total stories published & drafted</p>
         </div>
+
         <Link
           href="/admin/stories/new"
-          className="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+          className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all"
         >
-          <Plus className="w-4 h-4" aria-hidden="true" />
-          New Story
+          <Plus className="w-4 h-4" />
+          <span>New Story</span>
         </Link>
       </div>
 
-      {/* Filters */}
-      <form method="GET" className="flex flex-wrap gap-3 mb-6">
-        <input
-          type="search"
-          name="search"
-          defaultValue={search}
-          placeholder="Search stories..."
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          aria-label="Search stories"
-        />
-        <select
-          name="status"
-          defaultValue={status || ""}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          aria-label="Filter by status"
-        >
-          {statuses.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-        <select
-          name="category"
-          defaultValue={categoryId || ""}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          aria-label="Filter by category"
-        >
-          <option value="">All Categories</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
-        >
-          Filter
-        </button>
-        {(search || status || categoryId) && (
-          <a
-            href="/admin/stories"
-            className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Clear
-          </a>
-        )}
-      </form>
+      {/* Responsive Filters */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <form method="GET" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <input
+            type="search"
+            name="search"
+            defaultValue={search}
+            placeholder="Search stories by headline..."
+            className="w-full px-3.5 py-2 text-xs font-medium border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+            aria-label="Search stories"
+          />
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <select
+            name="status"
+            defaultValue={status || ""}
+            className="w-full px-3 py-2 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+            aria-label="Filter by status"
+          >
+            {statuses.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+
+          <select
+            name="category"
+            defaultValue={categoryId || ""}
+            className="w-full px-3 py-2 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+            aria-label="Filter by category"
+          >
+            <option value="">All Categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors shadow"
+            >
+              Filter
+            </button>
+            {(search || status || categoryId) && (
+              <a
+                href="/admin/stories"
+                className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Clear
+              </a>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Responsive Table & Mobile Cards */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Title
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                  Author
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                  Category
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                  Updated
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+              <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-bold uppercase tracking-wider">
+                <th className="text-left px-5 py-3.5">Headline</th>
+                <th className="text-left px-4 py-3.5">Reporter</th>
+                <th className="text-left px-4 py-3.5">Category</th>
+                <th className="text-left px-4 py-3.5">Status</th>
+                <th className="text-left px-4 py-3.5">Updated</th>
+                <th className="text-right px-5 py-3.5">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-slate-100">
               {stories.length > 0 ? (
                 stories.map((story) => (
-                  <tr key={story.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3">
+                  <tr key={story.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-5 py-3.5">
                       <div>
-                        <p className="font-medium text-gray-900 line-clamp-1 max-w-xs">
+                        <p className="font-extrabold text-slate-900 line-clamp-1 max-w-sm">
                           {story.title}
                         </p>
                         {story.isFeatured && (
-                          <span className="text-xs text-blue-600 font-medium">Featured</span>
+                          <span className="text-[10px] font-black text-red-600 uppercase tracking-wider">
+                            ★ Featured Banner
+                          </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">
                       {story.author.name}
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3.5">
                       <span
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
-                        style={{ backgroundColor: story.category.color || "#6366f1" }}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black text-white"
+                        style={{ backgroundColor: story.category.color || "#dc2626" }}
                       >
                         {story.category.name}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5">
                       <StatusBadge status={story.status} />
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px] whitespace-nowrap">
                       {formatDateShort(story.updatedAt)}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-1.5">
                         <Link
                           href={`/admin/stories/${story.id}/edit`}
-                          className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                          aria-label={`Edit ${story.title}`}
+                          className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                          title="Edit Story"
                         >
                           <Edit className="w-4 h-4" />
                         </Link>
@@ -198,8 +201,8 @@ export default async function AdminStoriesPage({ searchParams }: Props) {
                             href={`/story/${story.slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                            aria-label={`View ${story.title}`}
+                            className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="View Public Story"
                           >
                             <Eye className="w-4 h-4" />
                           </a>
@@ -211,9 +214,9 @@ export default async function AdminStoriesPage({ searchParams }: Props) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-4 py-12 text-center text-xs text-slate-500">
                     No stories found.{" "}
-                    <Link href="/admin/stories/new" className="text-blue-600 hover:underline">
+                    <Link href="/admin/stories/new" className="text-red-600 font-bold hover:underline">
                       Create your first story
                     </Link>
                   </td>
@@ -223,8 +226,64 @@ export default async function AdminStoriesPage({ searchParams }: Props) {
           </table>
         </div>
 
+        {/* Mobile Cards View (< md) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {stories.length > 0 ? (
+            stories.map((story) => (
+              <div key={story.id} className="p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span
+                    className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black text-white"
+                    style={{ backgroundColor: story.category.color || "#dc2626" }}
+                  >
+                    {story.category.name}
+                  </span>
+                  <StatusBadge status={story.status} />
+                </div>
+
+                <h3 className="font-extrabold text-sm text-slate-900 line-clamp-2">
+                  {story.title}
+                </h3>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                  <span>By {story.author.name}</span>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/stories/${story.id}/edit`}
+                      className="p-2 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </Link>
+                    {story.status === StoryStatus.PUBLISHED && (
+                      <a
+                        href={`/story/${story.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs flex items-center gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View</span>
+                      </a>
+                    )}
+                    <StoryActions story={{ id: story.id, title: story.title, status: story.status }} />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-8 text-center text-xs text-slate-500">
+              No stories found.{" "}
+              <Link href="/admin/stories/new" className="text-red-600 font-bold hover:underline">
+                Create a story
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-4 py-4 border-t border-gray-100 flex justify-center">
+          <div className="px-4 py-4 border-t border-slate-100 flex justify-center">
             <ServerPagination
               page={page}
               totalPages={totalPages}

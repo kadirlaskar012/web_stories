@@ -12,12 +12,21 @@ export function generateStoryMetadata(
   const title = story.seoTitle || story.title;
   const description = story.seoDescription || story.description || settings.default_seo_description;
   const url = absoluteUrl(`/story/${story.slug}`);
+  const ampUrl = absoluteUrl(`/api/stories/${story.slug}/amp`);
   const image = story.socialImage || story.coverImage || settings.default_social_image || '';
 
   return {
     title,
     description,
-    alternates: { canonical: story.canonicalUrl || url },
+    alternates: {
+      canonical: story.canonicalUrl || url,
+      types: {
+        'application/amp+html': ampUrl,
+      },
+    },
+    other: {
+      amphtml: ampUrl,
+    },
     openGraph: {
       title,
       description,
