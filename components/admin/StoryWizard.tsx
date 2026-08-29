@@ -16,6 +16,7 @@ import {
 import { STORY_TEMPLATES, StoryTemplatePreset } from "@/lib/themes/templates";
 import { TemplateGallery } from "./TemplateGallery";
 import { slugify } from "@/lib/slugify";
+import { compressImage } from "@/lib/image-compressor";
 import {
   Layers,
   CheckCircle2,
@@ -363,8 +364,15 @@ export function StoryWizard({
     setError("");
 
     try {
+      // 1. Auto-compress client-side down to 1080x1920 9:16 Web Story format
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1080,
+        maxHeight: 1920,
+        quality: 0.85,
+      });
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
 
       const res = await fetch("/api/media/upload", {
         method: "POST",

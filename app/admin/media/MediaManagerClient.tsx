@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/FormFields";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import { toast } from "@/components/ui/Toast";
 import { formatFileSize } from "@/lib/utils";
-import { Upload, Trash2, Copy, Image as ImageIcon, Video, Search, Check } from "lucide-react";
+import { compressImage } from "@/lib/image-compressor";
+import { Upload, Trash2, Copy, Image as ImageIcon, Video, Search, Check, Sparkles } from "lucide-react";
 
 interface MediaItem {
   id: string;
@@ -54,10 +55,18 @@ export default function MediaManagerClient({
     if (!file) return;
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
 
     try {
+      // 1. Auto-compress image before upload
+      const optimizedFile = await compressImage(file, {
+        maxWidth: 1080,
+        maxHeight: 1920,
+        quality: 0.85,
+      });
+
+      const formData = new FormData();
+      formData.append("file", optimizedFile);
+
       const res = await fetch("/api/media", {
         method: "POST",
         body: formData,
@@ -68,7 +77,7 @@ export default function MediaManagerClient({
         throw new Error(data.error || "Upload failed");
       }
 
-      toast.success("File uploaded successfully");
+      toast.success("Image auto-compressed and uploaded to Cloudinary!");
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to upload file");
@@ -126,14 +135,12 @@ export default function MediaManagerClient({
         </div>
       </div>
 
-      {!cloudinaryConfigured && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800">
-          <p className="font-semibold">Cloudinary Storage Notice</p>
-          <p className="mt-0.5 text-xs text-amber-700 leading-relaxed">
-            To enable cloud file uploads, configure <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">CLOUDINARY_CLOUD_NAME</code>, <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">CLOUDINARY_API_KEY</code>, and <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">CLOUDINARY_API_SECRET</code> in your environment. You can still use external image URLs directly in the Story Editor.
-          </p>
-        </div>
-      )}
+      <div className="flex items-center gap-2 p-3 mb-6 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+        <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        <span>
+          <strong>Auto-Compression Active:</strong> Images are automatically resized to 1080x1920 Web Story format and compressed for lightning-fast loading before uploading to Cloudinary CDN.
+        </span>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">

@@ -9,14 +9,21 @@ type StoryWithRelations = Story & {
 
 export function generateStoryJsonLd(story: StoryWithRelations, settings: SiteSettings) {
   const url = absoluteUrl(`/story/${story.slug}`);
-  const publisherLogoUrl = settings.logo_url || absoluteUrl('/logo.png');
+  const publisherLogoUrl = settings.logo_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=192&h=192&q=80";
+  const mainImage = story.socialImage || story.coverImage || "https://images.unsplash.com/photo-1542382257-80dedb725088?w=1200&q=80";
 
   return {
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': ['NewsArticle', 'WebStory'],
     headline: story.seoTitle || story.title,
-    description: story.seoDescription || story.description || '',
-    image: story.socialImage || story.coverImage || '',
+    description: story.seoDescription || story.description || story.excerpt || '',
+    image: [
+      mainImage,
+      mainImage.replace('w=1200', 'w=1600&h=900'), // 16:9
+      mainImage.replace('w=1200', 'w=1200&h=900'), // 4:3
+      mainImage.replace('w=1200', 'w=1080&h=1080'), // 1:1
+      mainImage.replace('w=1200', 'w=1080&h=1440'), // 3:4 portrait (Google Discover Favorite)
+    ],
     url,
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -32,13 +39,16 @@ export function generateStoryJsonLd(story: StoryWithRelations, settings: SiteSet
     publisher: {
       '@type': 'Organization',
       name: settings.publisher_name || settings.site_name,
+      url: settings.site_url,
       logo: {
         '@type': 'ImageObject',
         url: publisherLogoUrl,
-        width: 200,
-        height: 60,
+        width: 192,
+        height: 192,
       },
     },
+    articleSection: story.category.name,
+    inLanguage: 'en-US',
   };
 }
 

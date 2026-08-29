@@ -20,6 +20,7 @@ export function StoryCard({ story, priority = false, rank, featured = false }: S
   return (
     <Link
       href={`/story/${story.slug}`}
+      prefetch={true}
       className="group block relative select-none"
       aria-label={`Read story: ${story.title}`}
     >
@@ -104,6 +105,7 @@ export function StoryListCard({ story, priority = false }: StoryCardProps) {
   return (
     <Link
       href={`/story/${story.slug}`}
+      prefetch={true}
       className="group flex gap-4 items-center bg-white hover:bg-slate-50 border border-slate-100 hover:border-slate-200 rounded-2xl p-3 shadow-sm hover:shadow-md transition-all"
       aria-label={`Read story: ${story.title}`}
     >

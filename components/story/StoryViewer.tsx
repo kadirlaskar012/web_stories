@@ -461,23 +461,21 @@ export function StoryViewer({
           }}
         />
 
-        {/* Background Image with 18. Loading State & 19. Graceful Error Handling */}
+        {/* Background Image with Instant Rendering & Fallback */}
         {bgElement && (bgElement.content as any)?.src && layoutType !== "split-screen-card" && layoutType !== "polaroid-photo-frame" && (
           <div className="absolute inset-0">
             <Image
               src={(bgElement.content as any).src}
               alt={headingText || "Story Background"}
               fill
-              className={`object-cover transition-all duration-700 ${
-                imageLoaded[currentPage] ? "opacity-90 scale-100" : "opacity-0 scale-105"
-              }`}
+              sizes="(max-width: 768px) 100vw, 450px"
+              className="object-cover opacity-90"
               style={{
                 transform: `scale(${imgStyle.scale || 1})`,
                 objectPosition: imgStyle.objectPosition || "center",
               }}
-              onLoad={() => setImageLoaded((prev) => ({ ...prev, [currentPage]: true }))}
-              onError={() => setImageLoaded((prev) => ({ ...prev, [currentPage]: true }))}
-              priority
+              priority={currentPage === 0}
+              quality={85}
             />
           </div>
         )}
