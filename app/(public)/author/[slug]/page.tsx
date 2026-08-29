@@ -36,26 +36,21 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const [author, settings] = await Promise.all([
-    prisma.author.findUnique({ where: { slug } }),
-    getSiteSettings(),
-  ]);
-  if (!author) return { title: "Author Not Found" };
-  return generateAuthorMetadata(author, settings);
-}
+export const dynamic = "force-dynamic";
 
-export async function generateStaticParams() {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
-    const authors = await prisma.author.findMany({ select: { slug: true } });
-    return authors.map((a) => ({ slug: a.slug }));
+    const { slug } = await params;
+    const [author, settings] = await Promise.all([
+      prisma.author.findUnique({ where: { slug } }).catch(() => null),
+      getSiteSettings(),
+    ]);
+    if (!author) return { title: "Author Profile" };
+    return generateAuthorMetadata(author, settings);
   } catch {
-    return [];
+    return { title: "Author Profile" };
   }
 }
-
-export const revalidate = 300;
 
 export default async function AuthorPage({ params }: Props) {
   const { slug } = await params;
@@ -65,7 +60,7 @@ export default async function AuthorPage({ params }: Props) {
     include: {
       _count: { select: { stories: { where: { status: StoryStatus.PUBLISHED } } } },
     },
-  });
+  }).catch(() => null);
 
   if (!author) notFound();
 
@@ -77,7 +72,7 @@ export default async function AuthorPage({ params }: Props) {
     },
     orderBy: { publishedAt: "desc" },
     take: 18,
-  });
+  }).catch(() => []);
 
   const socialLinks = [
     { href: author.website, icon: Globe, label: "Website" },

@@ -11,7 +11,7 @@ import type { Metadata } from "next";
 import { ChevronRight, ArrowLeft } from "lucide-react";
 
 const PAGE_SIZE = 24;
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -19,21 +19,16 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const [category, settings] = await Promise.all([
-    prisma.category.findUnique({ where: { slug } }).catch(() => null),
-    getSiteSettings(),
-  ]);
-  if (!category) return { title: "Category Not Found" };
-  return generateCategoryMetadata(category, settings);
-}
-
-export async function generateStaticParams() {
   try {
-    const categories = await prisma.category.findMany({ select: { slug: true } });
-    return categories.map((c) => ({ slug: c.slug }));
+    const { slug } = await params;
+    const [category, settings] = await Promise.all([
+      prisma.category.findUnique({ where: { slug } }).catch(() => null),
+      getSiteSettings(),
+    ]);
+    if (!category) return { title: "Category" };
+    return generateCategoryMetadata(category, settings);
   } catch {
-    return [];
+    return { title: "Category" };
   }
 }
 

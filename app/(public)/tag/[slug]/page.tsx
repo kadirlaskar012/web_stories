@@ -7,7 +7,7 @@ import { StoryStatus } from "@prisma/client";
 import type { Metadata } from "next";
 
 const PAGE_SIZE = 24;
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -15,13 +15,17 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const tag = await prisma.tag.findUnique({ where: { slug } });
-  if (!tag) return { title: "Tag Not Found" };
-  return {
-    title: `#${tag.name} Stories`,
-    description: `Browse all Web Stories tagged with #${tag.name}`,
-  };
+  try {
+    const { slug } = await params;
+    const tag = await prisma.tag.findUnique({ where: { slug } }).catch(() => null);
+    if (!tag) return { title: "Tag" };
+    return {
+      title: `#${tag.name} Stories`,
+      description: `Browse all Web Stories tagged with #${tag.name}`,
+    };
+  } catch {
+    return { title: "Tag" };
+  }
 }
 
 export default async function TagPage({ params, searchParams }: Props) {
@@ -29,7 +33,7 @@ export default async function TagPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const tag = await prisma.tag.findUnique({ where: { slug } });
+  const tag = await prisma.tag.findUnique({ where: { slug } }).catch(() => null);
   if (!tag) notFound();
 
   const [storyTags, total] = await Promise.all([
@@ -49,13 +53,13 @@ export default async function TagPage({ params, searchParams }: Props) {
       orderBy: { story: { publishedAt: "desc" } },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-    }),
+    }).catch(() => []),
     prisma.storyTag.count({
       where: {
         tagId: tag.id,
         story: { status: StoryStatus.PUBLISHED },
       },
-    }),
+    }).catch(() => 0),
   ]);
 
   const stories = storyTags.map((st) => st.story);

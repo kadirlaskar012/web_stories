@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   site_url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   publisher_name: 'StoryFlow Media',
   contact_email: 'hello@storyflow.com',
-  footer_text: '© 2025 StoryFlow. All rights reserved.',
+  footer_text: '© 2026 StoryFlow. All rights reserved.',
   social_twitter: '',
   social_instagram: '',
   google_verification: '',
@@ -31,13 +31,21 @@ const DEFAULT_SETTINGS: SiteSettings = {
   default_seo_description: 'Discover engaging Web Stories across news, travel, food, technology, and more.',
 };
 
+let cachedSettings: { data: SiteSettings; timestamp: number } | null = null;
+
 export async function getSiteSettings(): Promise<SiteSettings> {
+  const now = Date.now();
+  if (cachedSettings && now - cachedSettings.timestamp < 60000) {
+    return cachedSettings.data;
+  }
   try {
     const rows = await prisma.siteSetting.findMany();
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value || '']));
-    return { ...DEFAULT_SETTINGS, ...map } as SiteSettings;
+    const settings = { ...DEFAULT_SETTINGS, ...map } as SiteSettings;
+    cachedSettings = { data: settings, timestamp: now };
+    return settings;
   } catch {
-    return DEFAULT_SETTINGS;
+    return cachedSettings?.data || DEFAULT_SETTINGS;
   }
 }
 
@@ -51,6 +59,7 @@ export async function getSetting(key: string): Promise<string | null> {
 }
 
 export async function updateSetting(key: string, value: string): Promise<void> {
+  cachedSettings = null;
   await prisma.siteSetting.upsert({
     where: { key },
     update: { value },
@@ -59,6 +68,7 @@ export async function updateSetting(key: string, value: string): Promise<void> {
 }
 
 export async function updateSettings(settings: Record<string, string>): Promise<void> {
+  cachedSettings = null;
   await Promise.all(
     Object.entries(settings).map(([key, value]) => updateSetting(key, value))
   );

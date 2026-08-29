@@ -27,30 +27,23 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const [story, settings] = await Promise.all([
-    prisma.story.findUnique({
-      where: { slug, status: StoryStatus.PUBLISHED },
-      include: { author: true, category: true },
-    }).catch(() => null),
-    getSiteSettings(),
-  ]);
-
-  if (!story) return { title: "Story Not Found" };
-  return generateStoryMetadata(story, settings);
-}
-
-export async function generateStaticParams() {
   try {
-    const stories = await prisma.story.findMany({
-      where: { status: StoryStatus.PUBLISHED },
-      select: { slug: true },
-      take: 20,
-    });
-    return stories.map((s) => ({ slug: s.slug }));
+    const { slug } = await params;
+    const [story, settings] = await Promise.all([
+      prisma.story.findUnique({
+        where: { slug, status: StoryStatus.PUBLISHED },
+        include: { author: true, category: true },
+      }).catch(() => null),
+      getSiteSettings(),
+    ]);
+
+    if (!story) return { title: "Web Story" };
+    return generateStoryMetadata(story, settings);
   } catch {
-    return [];
+    return { title: "Web Story" };
   }
 }
 
