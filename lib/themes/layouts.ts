@@ -1,25 +1,16 @@
 export type SlideLayoutType =
-  // Original 6 Core News
-  | "breaking-news"
-  | "news-explainer"
-  | "photo-news"
-  | "data-facts"
-  | "live-update"
-  | "entertainment-magazine"
-  // 10 New Unique & Stylish Editorial Templates
-  | "tech-spotlight"
-  | "investigative-report"
-  | "sports-bulletin"
-  | "opinion-column"
-  | "travel-guide"
-  | "finance-market"
-  | "science-discovery"
-  | "culinary-review"
-  | "climate-pulse"
-  | "automotive-showcase"
-  // Generic Utility Layouts
-  | "quote-spotlight"
-  | "cta-finale";
+  | "breaking-bold"          // 1. Hero Full-Bleed Breaking News
+  | "split-screen-card"      // 2. 50/50 Diagonal/Horizontal Split Card
+  | "top-rank-countdown"     // 3. Numbered Rank Countdown (Giant "01", "02")
+  | "glassmorphism-card"     // 4. Floating Frosted Glass Card
+  | "polaroid-photo-frame"   // 5. Retro Editorial Polaroid / Pinned Frame
+  | "infographic-stats-grid" // 6. 2x2 Metric Data Fact Cards
+  | "connected-timeline"     // 7. Vertical Connected Live Timeline
+  | "big-quote-spotlight"    // 8. Thought Leader Pull Quote with Avatar
+  | "versus-comparison"      // 9. Side-by-Side A vs B Showdown
+  | "magazine-cutout"        // 10. High-Fashion Editorial Magazine Multi-Layer
+  | "recipe-step-card"       // 11. Step-by-Step Guide with Checklist
+  | "sports-scoreboard";     // 12. Athletic Scoreboard & MVP Card
 
 export interface DataFactItem {
   icon?: string;
@@ -33,12 +24,25 @@ export interface TimelineItem {
   text: string;
 }
 
+export interface VersusItem {
+  nameA: string;
+  statA: string;
+  labelA: string;
+  nameB: string;
+  statB: string;
+  labelB: string;
+}
+
+export interface ChecklistItem {
+  step: string;
+  text: string;
+}
+
 export interface SlideLayoutConfig {
   id: SlideLayoutType;
   name: string;
   category: "News & Politics" | "Editorial & Feature" | "Economy & Tech" | "Travel & Lifestyle" | "Entertainment & Sports";
-  description: string;
-  previewClass: string;
+  structureDescription: string;
   defaultData: {
     badgeText?: string;
     headingText: string;
@@ -48,65 +52,99 @@ export interface SlideLayoutConfig {
     sourceText?: string;
     quoteAuthor?: string;
     mediaUrl?: string;
+    rankNumber?: string;
     statsList?: DataFactItem[];
     timelineList?: TimelineItem[];
+    versusData?: VersusItem;
+    checklist?: ChecklistItem[];
+    ctaLabel?: string;
+    ctaUrl?: string;
   };
 }
 
 export const SLIDE_LAYOUTS: SlideLayoutConfig[] = [
-  // 1. BREAKING NEWS – BOLD
+  // 1. BREAKING BOLD
   {
-    id: "breaking-news",
-    name: "Breaking News – Bold",
+    id: "breaking-bold",
+    name: "Breaking News – Bold Scrim",
     category: "News & Politics",
-    description: "Urgent red badge, bold all-caps headline, dateline pipe, and full-bleed photojournalism.",
-    previewClass: "bg-black text-white",
+    structureDescription: "Full-bleed 9:16 background photo, urgent red pill, heavy all-caps typography, red dateline bar.",
     defaultData: {
       badgeText: "BREAKING NEWS",
       headingText: "MASSIVE WILDFIRE HITS CALIFORNIA",
-      descriptionText: "Thousands evacuated as firefighters battle the blaze across state canyons",
+      descriptionText: "Thousands evacuated as firefighters battle the blaze across state canyons under severe dry winds.",
       locationDate: "JUNE 1, 2024 | CALIFORNIA, USA",
       mediaUrl: "https://images.unsplash.com/photo-1542382257-80dedb725088?w=1080&q=80",
     },
   },
 
-  // 2. NEWS EXPLAINER – EDITORIAL
+  // 2. SPLIT SCREEN CARD
   {
-    id: "news-explainer",
-    name: "News Explainer – Ivory",
+    id: "split-screen-card",
+    name: "Split Screen – Editorial Card",
     category: "Editorial & Feature",
-    description: "Light cream background, serif headline, red divider bar, and framed photography.",
-    previewClass: "bg-[#f7f4ed] text-slate-900",
+    structureDescription: "Top 50% framed photo with rounded corners, bottom 50% clean ivory card with serif typography & accent rule.",
     defaultData: {
       badgeText: "EXPLAINER",
       headingText: "What You Need to Know About The New Student Loan Plan",
-      descriptionText: "The U.S. Department of Education has announced a major update to the federal forgiveness program.",
+      descriptionText: "The U.S. Department of Education has announced a major update capping payments at 5% of income.",
+      locationDate: "01 / 07",
       mediaUrl: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1080&q=80",
     },
   },
 
-  // 3. PHOTO NEWS – IMMERSIVE
+  // 3. TOP RANK COUNTDOWN
   {
-    id: "photo-news",
-    name: "Photo News – Immersive",
+    id: "top-rank-countdown",
+    name: "Rank Countdown – Giant Numeral",
     category: "Travel & Lifestyle",
-    description: "Full-bleed 9:16 photography, minimal UI, and elegant lower-third caption.",
-    previewClass: "bg-black text-white",
+    structureDescription: "Massive translucent outline number (01), center framed circular/rounded photo, rank headline & takeaway highlight.",
     defaultData: {
-      badgeText: "U.S. NEWS",
-      headingText: "Foggy Morning in San Francisco",
-      descriptionText: "A beautiful start to the day across the Bay Area as maritime fog blankets the bridge.",
+      rankNumber: "01",
+      badgeText: "#1 TOP DESTINATION",
+      headingText: "Kyoto: The Bamboo Grove of Arashiyama",
+      descriptionText: "Walk through towering emerald bamboo groves at dawn for an unforgettable zen experience in Japan.",
+      subheadText: "MUST-VISIT IN 2026",
+      mediaUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=1080&q=80",
+    },
+  },
+
+  // 4. GLASSMORPHISM FLOATING CARD
+  {
+    id: "glassmorphism-card",
+    name: "Glassmorphism – Floating Card",
+    category: "Economy & Tech",
+    structureDescription: "Cinematic full background with a central frosted glass container, glowing border, and structured bullet takeaways.",
+    defaultData: {
+      badgeText: "NEXT-GEN AI",
+      headingText: "Neural Silicon Architecture Revealed",
+      subheadText: "On-Device Multimodal Reasoning",
+      descriptionText: "Engineers unveil ultra-efficient 3nm quantum neural processors delivering 100 TOPS without cloud latency.",
+      mediaUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1080&q=80",
+    },
+  },
+
+  // 5. POLAROID PHOTO FRAME
+  {
+    id: "polaroid-photo-frame",
+    name: "Polaroid Frame – Retro Editorial",
+    category: "Travel & Lifestyle",
+    structureDescription: "Textured paper background, angled Polaroid photo with white border & taped corner, handwritten-feel caption.",
+    defaultData: {
+      badgeText: "FIELD DISPATCH",
+      headingText: "Foggy Sunrise at Golden Gate",
+      descriptionText: "A breathtaking start to the day across Marin Headlands as Pacific maritime fog blankets the bridge.",
+      locationDate: "SAN FRANCISCO, CA · MAY 2026",
       mediaUrl: "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=1080&q=80",
     },
   },
 
-  // 4. DATA / FACTS – INFOGRAPHIC
+  // 6. INFOGRAPHIC STATS GRID (2x2)
   {
-    id: "data-facts",
-    name: "Data / Facts – Infographic",
+    id: "infographic-stats-grid",
+    name: "Infographic – 2x2 Metric Grid",
     category: "Economy & Tech",
-    description: "Dark navy background with 4 structured metric cards, custom icons, and source citation.",
-    previewClass: "bg-[#070d1d] text-white",
+    structureDescription: "Dark navy tech aesthetic with 4 distinct metric cards, vibrant glowing icons, big numbers, and source line.",
     defaultData: {
       badgeText: "U.S. ECONOMY UPDATE",
       headingText: "May Jobs Report Key Highlights",
@@ -121,229 +159,118 @@ export const SLIDE_LAYOUTS: SlideLayoutConfig[] = [
     },
   },
 
-  // 5. LIVE UPDATE – TIMELINE
+  // 7. CONNECTED TIMELINE
   {
-    id: "live-update",
-    name: "Live Update – Timeline",
+    id: "connected-timeline",
+    name: "Timeline – Real-Time Bulletins",
     category: "News & Politics",
-    description: "Chronological live tracker with pulsing indicator, vertical connected line, and timestamps.",
-    previewClass: "bg-[#0d0f15] text-white",
+    structureDescription: "Continuous vertical red tracker pipe with pulsing node bullets, timestamps, and chronological live updates.",
     defaultData: {
       badgeText: "🔴 LIVE UPDATE",
-      headingText: "What We Know So Far",
-      locationDate: "May 31, 2024",
+      headingText: "Severe Storm & Tornado Tracker",
+      locationDate: "May 31, 2024 · Live Dispatch",
       descriptionText: "",
       timelineList: [
-        { time: "2:45 PM", text: "Severe storms reported in Texas and Oklahoma." },
-        { time: "3:30 PM", text: "Tornado warnings issued for 6 states." },
-        { time: "4:10 PM", text: "Over 120,000 customers without power." },
-        { time: "4:45 PM", text: "Rescue operations underway in affected areas." },
+        { time: "2:45 PM", text: "Severe storms reported across Texas and Oklahoma." },
+        { time: "3:30 PM", text: "Tornado warnings issued for 6 Midwestern states." },
+        { time: "4:10 PM", text: "Over 120,000 utility customers without power." },
+        { time: "4:45 PM", text: "Emergency rescue operations underway in affected counties." },
       ],
     },
   },
 
-  // 6. ENTERTAINMENT – MAGAZINE
+  // 8. BIG QUOTE SPOTLIGHT
   {
-    id: "entertainment-magazine",
-    name: "Entertainment – Magazine",
-    category: "Entertainment & Sports",
-    description: "Dark purple/magenta aesthetic, glamorous serif name, italic subhead, and portrait photo.",
-    previewClass: "bg-black text-white",
-    defaultData: {
-      badgeText: "ENTERTAINMENT",
-      headingText: "Zendaya",
-      subheadText: "Stars in New Blockbuster Movie",
-      descriptionText: "Everything we know about the highly anticipated cinematic release hitting theaters.",
-      mediaUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1080&q=80",
-    },
-  },
-
-  // ─── 10 NEW STYLISH & UNIQUE EDITORIAL DESIGNS ─────────────────────────────
-
-  // 7. TECH LAUNCH & GADGET SPOTLIGHT
-  {
-    id: "tech-spotlight",
-    name: "Tech Launch – Silicon Cyber",
-    category: "Economy & Tech",
-    description: "Electric cyan accents, dark carbon look, processor specs badge, and futuristic hardware styling.",
-    previewClass: "bg-[#050b14] text-cyan-400",
-    defaultData: {
-      badgeText: "HARDWARE REVEAL",
-      headingText: "Next-Gen Quantum Neural Chip Announced",
-      subheadText: "3nm Architecture • 45% Lower Power",
-      descriptionText: "Engineers unveil revolutionary microchip capable of running multimodal AI on device without cloud dependency.",
-      mediaUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1080&q=80",
-    },
-  },
-
-  // 8. INVESTIGATIVE DEEP DIVE
-  {
-    id: "investigative-report",
-    name: "Investigative – Deep Dive",
+    id: "big-quote-spotlight",
+    name: "Pull Quote – Leader Spotlight",
     category: "Editorial & Feature",
-    description: "Monochrome investigative dispatch with dramatic contrast, red confidential seal, and evidence callout.",
-    previewClass: "bg-[#0b0c10] text-slate-100",
+    structureDescription: "Giant quotation marks, circular author portrait with gradient border, huge italic statement, and verified bio badge.",
     defaultData: {
-      badgeText: "INVESTIGATION",
-      headingText: "The Secret Water Pipeline of the Mojave",
-      descriptionText: "A 6-month investigative probe reveals covert industrial aquifers altering desert ecosystems.",
-      locationDate: "SPECIAL DISPATCH | LAS VEGAS, NV",
-      mediaUrl: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1080&q=80",
-    },
-  },
-
-  // 9. SPORTS BULLETIN & MATCH TRACKER
-  {
-    id: "sports-bulletin",
-    name: "Sports Bulletin – Game Night",
-    category: "Entertainment & Sports",
-    description: "High-energy athletic typography, bold score card, star player photo, and stadium atmosphere.",
-    previewClass: "bg-[#0a0d18] text-white",
-    defaultData: {
-      badgeText: "FINAL SCORE",
-      headingText: "Championship Victory in Overtime",
-      subheadText: "LAL 114 — 108 BOS",
-      descriptionText: "A dramatic 3-pointer with 4.2 seconds remaining seals the Eastern Conference championship thriller.",
-      mediaUrl: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1080&q=80",
-    },
-  },
-
-  // 10. OPINION & OP-ED COLUMNIST
-  {
-    id: "opinion-column",
-    name: "Opinion – Op-Ed Column",
-    category: "Editorial & Feature",
-    description: "Oversized decorative quotation marks, author headshot badge, warm parchment styling, and bold thought leadership.",
-    previewClass: "bg-[#f4efe6] text-slate-950",
-    defaultData: {
-      badgeText: "OP-ED COLUMN",
-      headingText: "Why The Future of Cities Belongs to Pedestrians",
-      quoteAuthor: "By David Brooks · Senior Columnist",
-      descriptionText: "Reclaiming downtown avenues from vehicles is not just an urban dream—it is an economic revitalization imperative.",
+      badgeText: "OP-ED THOUGHT LEADERSHIP",
+      headingText: "The future of great cities belongs to pedestrians, not cars.",
+      quoteAuthor: "David Brooks · Senior Editorial Columnist",
+      descriptionText: "When streets are designed for human connection rather than vehicle speed, community commerce and public safety soar.",
       mediaUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1080&q=80",
     },
   },
 
-  // 11. TRAVEL & CITY GUIDE
+  // 9. VERSUS COMPARISON SHOWDOWN
   {
-    id: "travel-guide",
-    name: "Travel – Wanderlust Guide",
-    category: "Travel & Lifestyle",
-    description: "Terracotta and golden sunset aesthetic with destination badge, curated stop numbers, and scenic photography.",
-    previewClass: "bg-[#1c130d] text-amber-100",
-    defaultData: {
-      badgeText: "CITY GUIDE",
-      headingText: "48 Hours in Kyoto: Ancient Temples & Tea Gardens",
-      subheadText: "HIGASHIYAMA DISTRICT",
-      descriptionText: "From bamboo groves at sunrise to lantern-lit alleys in Gion, discover the spiritual heart of Japan.",
-      mediaUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=1080&q=80",
-    },
-  },
-
-  // 12. FINANCE & MARKET MOVERS
-  {
-    id: "finance-market",
-    name: "Finance – Market Mover",
+    id: "versus-comparison",
+    name: "Versus Showdown – A vs B",
     category: "Economy & Tech",
-    description: "Emerald green ticker pulse, dark carbon background, stock index metrics, and Wall Street insight.",
-    previewClass: "bg-[#06100d] text-emerald-400",
+    structureDescription: "Dual side-by-side comparison cards with glowing center 'VS' circle, stat badges, and pros/cons showdown.",
     defaultData: {
-      badgeText: "MARKET MOVERS",
-      headingText: "Tech Rally Drives S&P 500 to All-Time Record High",
-      subheadText: "+2.4% NASDAQ • S&P 5,500",
-      descriptionText: "Semiconductor earnings beat analyst estimates by 30%, igniting a global equities surge.",
-      mediaUrl: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1080&q=80",
+      badgeText: "HEAD-TO-HEAD SHOWDOWN",
+      headingText: "Quantum Neural vs Traditional GPU",
+      subheadText: "Hardware Benchmark Comparison",
+      descriptionText: "Benchmarking power efficiency, latency, and on-device inference speed across next-gen compute architectures.",
+      versusData: {
+        nameA: "Quantum Neural",
+        statA: "100 TOPS",
+        labelA: "5W Power · 0ms Cloud",
+        nameB: "Legacy GPU",
+        statB: "45 TOPS",
+        labelB: "35W Power · Cloud Delay",
+      },
     },
   },
 
-  // 13. SCIENCE & HEALTH BREAKTHROUGH
+  // 10. MAGAZINE EDITORIAL CUTOUT
   {
-    id: "science-discovery",
-    name: "Science – Breakthrough Discovery",
-    category: "Economy & Tech",
-    description: "Teal & mint discovery palette, scientific fact badge, micro-lens imagery, and peer-reviewed summary.",
-    previewClass: "bg-[#041417] text-teal-300",
-    defaultData: {
-      badgeText: "NATURE & SCIENCE",
-      headingText: "Deep Ocean Species Discovered at 8,000m Trench",
-      descriptionText: "Marine biologists catalog bioluminescent organisms thriving under extreme hydrothermal pressures.",
-      sourceText: "Published in Nature Geoscience",
-      mediaUrl: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1080&q=80",
-    },
-  },
-
-  // 14. CULINARY & GASTRONOMY REVIEW
-  {
-    id: "culinary-review",
-    name: "Culinary – Gourmet Review",
-    category: "Travel & Lifestyle",
-    description: "Warm gourmet tones, 5-star rating badge, dish highlights, chef quotation, and mouthwatering photography.",
-    previewClass: "bg-[#160d09] text-amber-200",
-    defaultData: {
-      badgeText: "MICHELIN GUIDE ★★★",
-      headingText: "Tasting Menu at L’Atelier: Wood-Fired Mastery",
-      subheadText: "Chef Marco Pierre · Napa Valley",
-      descriptionText: "Hand-rolled tagliolini with white truffles paired alongside dry-aged heritage beef.",
-      mediaUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1080&q=80",
-    },
-  },
-
-  // 15. CLIMATE & PLANET PULSE
-  {
-    id: "climate-pulse",
-    name: "Climate – Earth Pulse",
-    category: "News & Politics",
-    description: "Forest green & dark slate, satellite aerial photography, global temperature metric, and urgent environmental call.",
-    previewClass: "bg-[#06120c] text-emerald-300",
-    defaultData: {
-      badgeText: "PLANET PULSE",
-      headingText: "Arctic Ice Melt Reaches Critical Threshold",
-      subheadText: "Polar Satellite Observation Data",
-      descriptionText: "Glaciologists record record summer retreat across Greenland ice sheet as ocean temperatures rise.",
-      mediaUrl: "https://images.unsplash.com/photo-1516900557549-41557d405adf?w=1080&q=80",
-    },
-  },
-
-  // 16. AUTOMOTIVE & SPEED SHOWCASE
-  {
-    id: "automotive-showcase",
-    name: "Automotive – Supercar Velocity",
+    id: "magazine-cutout",
+    name: "Magazine Cutout – Fashion Multi-Layer",
     category: "Entertainment & Sports",
-    description: "Matte carbon black, crimson racing lines, 0-60 mph stats, and dynamic track photography.",
-    previewClass: "bg-[#08080a] text-red-400",
+    structureDescription: "High-fashion magazine layout with oversized serif name overlapping portrait, vertical rotated issue text, and pill CTA.",
     defaultData: {
-      badgeText: "TRACK TEST",
-      headingText: "The 1,200 HP Electric Hypercar Unleashed",
-      subheadText: "0-60 MPH in 1.8s • Top Speed 250 MPH",
-      descriptionText: "Quad-motor torque vectoring delivers mind-bending acceleration on the Nürburgring circuit.",
-      mediaUrl: "https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=1080&q=80",
+      badgeText: "VOGUE EXCLUSIVE",
+      headingText: "Zendaya",
+      subheadText: "Stars in Autumn Cinematic Masterpiece",
+      descriptionText: "An intimate look into the physical transformation and desert filming behind the year's most anticipated film.",
+      locationDate: "ISSUE 48 · AUTUMN EDITION",
+      mediaUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1080&q=80",
+      ctaLabel: "Swipe Up for Full Interview",
+      ctaUrl: "/stories",
     },
   },
 
-  // 17. QUOTE SPOTLIGHT
+  // 11. RECIPE & STEP-BY-STEP GUIDE
   {
-    id: "quote-spotlight",
-    name: "Quote Spotlight",
-    category: "Editorial & Feature",
-    description: "Minimalist bold quote layout for impactful speeches, statements, and thought leaders.",
-    previewClass: "bg-slate-950 text-white",
+    id: "recipe-step-card",
+    name: "Step Guide – Recipe Checklist",
+    category: "Travel & Lifestyle",
+    structureDescription: "Warm gourmet theme, compact top photo, numbered step pill, bulleted ingredient checklist, and Chef's Tip callout.",
     defaultData: {
-      headingText: "The only limit to our realization of tomorrow will be our doubts of today.",
-      quoteAuthor: "Franklin D. Roosevelt",
-      descriptionText: "",
+      badgeText: "STEP 03 OF 05",
+      headingText: "Wood-Fired Tagliolini with White Truffles",
+      subheadText: "Prep Time: 15 Mins · Cook: 8 Mins",
+      descriptionText: "Gently emulsify cultured butter with pasta water over low flame until glossy, then shave fresh truffles generously.",
+      mediaUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1080&q=80",
+      checklist: [
+        { step: "01", text: "Boil fresh tagliolini for exactly 90 seconds in salted water." },
+        { step: "02", text: "Swirl French butter with starchy pasta water to form emulsion." },
+        { step: "03", text: "Plate immediately and finish with hand-shaved Alba truffles." },
+      ],
     },
   },
 
-  // 18. CTA FINALE
+  // 12. SPORTS SCOREBOARD & MVP
   {
-    id: "cta-finale",
-    name: "CTA Finale",
-    category: "News & Politics",
-    description: "High-conversion end card directing viewers to read the full article, subscribe, or visit website.",
-    previewClass: "bg-[#090d16] text-white",
+    id: "sports-scoreboard",
+    name: "Sports Scoreboard – Game Finals",
+    category: "Entertainment & Sports",
+    structureDescription: "Top stadium scoreboard box with live scores (LAL 114 - 108 BOS), athlete action photo, and bottom MVP stat bar.",
     defaultData: {
-      headingText: "Follow Live Coverage on USA Daily",
-      descriptionText: "Get real-time breaking news alerts and in-depth visual journalism on your mobile device.",
+      badgeText: "FINAL SCORE · OT",
+      headingText: "Championship Victory in Overtime Thriller",
+      subheadText: "LAL 114 — 108 BOS",
+      descriptionText: "A clutch 3-pointer with 4.2 seconds remaining in overtime seals an unforgettable Game 7 championship victory.",
+      mediaUrl: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1080&q=80",
+      statsList: [
+        { stat: "44", label: "Points" },
+        { stat: "12", label: "Rebounds" },
+        { stat: "8", label: "Assists" },
+      ],
     },
   },
 ];

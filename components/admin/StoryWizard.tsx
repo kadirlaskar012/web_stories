@@ -10,6 +10,8 @@ import {
   getLayoutById,
   DataFactItem,
   TimelineItem,
+  VersusItem,
+  ChecklistItem,
 } from "@/lib/themes/layouts";
 import { STORY_TEMPLATES, StoryTemplatePreset } from "@/lib/themes/templates";
 import { TemplateGallery } from "./TemplateGallery";
@@ -54,12 +56,15 @@ export interface SlideData {
   locationDate?: string;
   sourceText?: string;
   quoteAuthor?: string;
+  rankNumber?: string;
   duration: number;
   hasCta: boolean;
   ctaLabel: string;
   ctaUrl: string;
   statsList?: DataFactItem[];
   timelineList?: TimelineItem[];
+  versusData?: VersusItem;
+  checklist?: ChecklistItem[];
 }
 
 interface StoryWizardProps {
@@ -85,7 +90,7 @@ export function StoryWizard({
     if (initialStory?.pages?.[0]?.elements?.[0]?.content?.layoutMeta?.layoutType) {
       return initialStory.pages[0].elements[0].content.layoutMeta.layoutType;
     }
-    return "breaking-news";
+    return "breaking-bold";
   });
 
   // Wizard Step inside Editor: 1 = Details & Slides, 2 = Google SEO Audit, 3 = Publish
@@ -131,35 +136,38 @@ export function StoryWizard({
           order: idx,
           layoutType: meta.layoutType || selectedTemplate,
           backgroundMedia: (bgEl?.content as any)?.src || "",
-          backgroundColor: p.background || (selectedTemplate === "news-explainer" ? "#f7f4ed" : "#0c0d12"),
-          badgeText: meta.badgeText || (selectedTemplate === "breaking-news" ? "BREAKING NEWS" : "U.S. NEWS"),
+          backgroundColor: p.background || "#0c0d12",
+          badgeText: meta.badgeText || "BREAKING NEWS",
           headingText: (textEls[0]?.content as any)?.text || "",
           subheadText: meta.subheadText || "",
           descriptionText: (textEls[1]?.content as any)?.text || "",
           locationDate: meta.locationDate || "JUNE 1, 2024 | CALIFORNIA, USA",
           sourceText: meta.sourceText || "Source: Official Dispatch",
           quoteAuthor: meta.quoteAuthor || "",
+          rankNumber: meta.rankNumber || "01",
           duration: p.duration || 7,
           hasCta: !!ctaEl,
           ctaLabel: (ctaEl?.content as any)?.label || "Swipe Up for Details",
           ctaUrl: (ctaEl?.content as any)?.url || "",
           statsList: meta.statsList || undefined,
           timelineList: meta.timelineList || undefined,
+          versusData: meta.versusData || undefined,
+          checklist: meta.checklist || undefined,
         };
       });
     }
 
-    const tConfig = getLayoutById("breaking-news");
+    const tConfig = getLayoutById("breaking-bold");
     return [
       {
         id: "slide-0",
         order: 0,
-        layoutType: "breaking-news",
+        layoutType: "breaking-bold",
         backgroundMedia: "https://images.unsplash.com/photo-1542382257-80dedb725088?w=1080&q=80",
         backgroundColor: "#0c0d12",
         badgeText: "BREAKING NEWS",
         headingText: "MASSIVE WILDFIRE HITS CALIFORNIA",
-        descriptionText: "Thousands evacuated as firefighters battle the blaze across state canyons",
+        descriptionText: "Thousands evacuated as firefighters battle the blaze across state canyons under severe dry winds.",
         locationDate: "JUNE 1, 2024 | CALIFORNIA, USA",
         duration: 7,
         hasCta: false,
@@ -169,12 +177,12 @@ export function StoryWizard({
       {
         id: "slide-1",
         order: 1,
-        layoutType: "breaking-news",
+        layoutType: "breaking-bold",
         backgroundMedia: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=1080&q=80",
         backgroundColor: "#0c0d12",
-        badgeText: "BREAKING NEWS",
+        badgeText: "STATE OF EMERGENCY",
         headingText: "Over 50,000 Acres Burned Overnight",
-        descriptionText: "Governor issues state of emergency declaration as gale-force winds complicate air drops.",
+        descriptionText: "Governor issues emergency declaration as gale-force winds complicate air drops and containment lines.",
         locationDate: "JUNE 1, 2024 | TOPANGA CANYON, CA",
         duration: 7,
         hasCta: false,
@@ -184,14 +192,14 @@ export function StoryWizard({
       {
         id: "slide-2",
         order: 2,
-        layoutType: "breaking-news",
+        layoutType: "breaking-bold",
         backgroundMedia: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=1080&q=80",
         backgroundColor: "#0c0d12",
         badgeText: "EVACUATION MAP",
         headingText: "Emergency Shelters Open Across County",
-        descriptionText: "Red Cross stations activated with emergency beds, food supplies, and air filters.",
+        descriptionText: "Red Cross stations activated with emergency beds, food supplies, and air filters for residents.",
         locationDate: "JUNE 1, 2024 | LOS ANGELES COUNTY",
-        duration: 7,
+        duration: 8,
         hasCta: true,
         ctaLabel: "View Live Evacuation Map",
         ctaUrl: "/stories",
@@ -234,7 +242,6 @@ export function StoryWizard({
     setCoverImage(template.coverImage);
     setTagsInput(template.defaultTags.join(", "));
 
-    // Populate slides from template
     setSlides(
       template.defaultSlides.map((s, idx) => ({
         id: `slide-${idx}`,
@@ -249,12 +256,15 @@ export function StoryWizard({
         locationDate: s.locationDate,
         sourceText: s.sourceText,
         quoteAuthor: s.quoteAuthor,
+        rankNumber: s.rankNumber,
         duration: s.duration,
         hasCta: !!s.hasCta,
         ctaLabel: s.ctaLabel || "Swipe Up for Details",
         ctaUrl: s.ctaUrl || "",
         statsList: s.statsList,
         timelineList: s.timelineList,
+        versusData: s.versusData,
+        checklist: s.checklist,
       }))
     );
 
@@ -318,9 +328,11 @@ export function StoryWizard({
       layoutType: selectedTemplate,
       backgroundMedia: activeSlide?.backgroundMedia || coverImage || tConfig.defaultData.mediaUrl || "",
       backgroundColor:
-        selectedTemplate === "news-explainer"
+        selectedTemplate === "split-screen-card"
           ? "#f7f4ed"
-          : selectedTemplate === "data-facts"
+          : selectedTemplate === "polaroid-photo-frame"
+          ? "#f4ede4"
+          : selectedTemplate === "infographic-stats-grid"
           ? "#070d1d"
           : "#0c0d12",
       badgeText: tConfig.defaultData.badgeText,
@@ -330,12 +342,15 @@ export function StoryWizard({
       locationDate: tConfig.defaultData.locationDate,
       sourceText: tConfig.defaultData.sourceText,
       quoteAuthor: tConfig.defaultData.quoteAuthor,
+      rankNumber: `0${slides.length + 1}`,
       duration: 7,
       hasCta: false,
       ctaLabel: "Swipe Up for More",
       ctaUrl: "",
       statsList: tConfig.defaultData.statsList,
       timelineList: tConfig.defaultData.timelineList,
+      versusData: tConfig.defaultData.versusData,
+      checklist: tConfig.defaultData.checklist,
     };
     setSlides((prev) => [...prev, newSlide]);
     setActiveSlideIndex(slides.length);
@@ -402,8 +417,11 @@ export function StoryWizard({
               locationDate: slide.locationDate,
               sourceText: slide.sourceText,
               quoteAuthor: slide.quoteAuthor,
+              rankNumber: slide.rankNumber,
               statsList: slide.statsList,
               timelineList: slide.timelineList,
+              versusData: slide.versusData,
+              checklist: slide.checklist,
             },
           },
           position: { x: 0, y: 0 },
@@ -419,9 +437,9 @@ export function StoryWizard({
             position: { x: 8, y: 55 },
             size: { width: 84, height: 25 },
             style: {
-              fontSize: selectedTemplate === "breaking-news" ? 30 : 24,
+              fontSize: selectedTemplate === "breaking-bold" ? 30 : 24,
               fontWeight: 800,
-              color: selectedTemplate === "news-explainer" ? "#0f172a" : "#ffffff",
+              color: selectedTemplate === "split-screen-card" || selectedTemplate === "polaroid-photo-frame" ? "#0f172a" : "#ffffff",
               lineHeight: 1.15,
             },
             order: 1,
@@ -436,7 +454,7 @@ export function StoryWizard({
             size: { width: 84, height: 20 },
             style: {
               fontSize: 14,
-              color: selectedTemplate === "news-explainer" ? "#334155" : "#e2e8f0",
+              color: selectedTemplate === "split-screen-card" || selectedTemplate === "polaroid-photo-frame" ? "#334155" : "#e2e8f0",
               lineHeight: 1.5,
             },
             order: 2,
@@ -512,7 +530,7 @@ export function StoryWizard({
   };
 
   // ══════════════════════════════════════════════════════════════════════════
-  // VIEW 1: TEMPLATE GALLERY (FIRST STEP WHEN CREATING A STORY)
+  // VIEW 1: TEMPLATE GALLERY (FIRST STEP)
   // ══════════════════════════════════════════════════════════════════════════
   if (viewMode === "gallery") {
     return (
@@ -539,7 +557,7 @@ export function StoryWizard({
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // VIEW 2: STORY EDITOR (TAILORED SPECIFICALLY TO THE CHOSEN TEMPLATE)
+  // VIEW 2: STORY EDITOR (TAILORED SPECIFICALLY TO CHOSEN TEMPLATE ARCHITECTURE)
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-6 animate-fade-in">
@@ -632,14 +650,14 @@ export function StoryWizard({
           {/* ═══════════ STEP 1: Story Details + Slide Content Builder ═══════════ */}
           {activeStep === 1 && (
             <div className="space-y-6">
-              {/* Primary Story Metadata Accordion */}
+              {/* Primary Story Metadata */}
               <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-red-600" />
                     Story Details & Publishing Metadata
                   </h2>
-                  <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full">
                     {activeLayout.name}
                   </span>
                 </div>
@@ -821,7 +839,7 @@ export function StoryWizard({
                       type="text"
                       value={activeSlide.badgeText || ""}
                       onChange={(e) => updateSlide(activeSlideIndex, { badgeText: e.target.value })}
-                      placeholder="e.g. BREAKING NEWS, U.S. NEWS, EXPLAINER"
+                      placeholder="e.g. BREAKING NEWS, EXPLAINER, STEP 01"
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black tracking-wider focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                   </div>
@@ -840,40 +858,38 @@ export function StoryWizard({
                     />
                   </div>
 
-                  {/* Subhead (for Entertainment) */}
-                  {selectedTemplate === "entertainment-magazine" && (
+                  {/* Subhead / Rank / Author Inputs */}
+                  {selectedTemplate === "top-rank-countdown" && (
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        Italic Editorial Subheading
+                        Rank Number (e.g. 01, 02, 03)
                       </label>
                       <input
                         type="text"
-                        value={activeSlide.subheadText || ""}
-                        onChange={(e) => updateSlide(activeSlideIndex, { subheadText: e.target.value })}
-                        placeholder="e.g. Stars in New Blockbuster Movie"
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-pink-600 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-500"
+                        value={activeSlide.rankNumber || "01"}
+                        onChange={(e) => updateSlide(activeSlideIndex, { rankNumber: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-amber-600 font-mono font-black text-sm"
                       />
                     </div>
                   )}
 
-                  {/* Location & Dateline (for Breaking News & Live Update) */}
-                  {(selectedTemplate === "breaking-news" || selectedTemplate === "live-update") && (
+                  {selectedTemplate === "big-quote-spotlight" && (
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        Location & Dateline
+                        Quote Author / Title
                       </label>
                       <input
                         type="text"
-                        value={activeSlide.locationDate || ""}
-                        onChange={(e) => updateSlide(activeSlideIndex, { locationDate: e.target.value })}
-                        placeholder="e.g. JUNE 1, 2024 | CALIFORNIA, USA"
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
+                        value={activeSlide.quoteAuthor || ""}
+                        onChange={(e) => updateSlide(activeSlideIndex, { quoteAuthor: e.target.value })}
+                        placeholder="e.g. David Brooks · Senior Columnist"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold"
                       />
                     </div>
                   )}
 
                   {/* Supporting Description Paragraph */}
-                  {selectedTemplate !== "data-facts" && selectedTemplate !== "live-update" && (
+                  {selectedTemplate !== "infographic-stats-grid" && selectedTemplate !== "connected-timeline" && (
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                         Supporting News Description
@@ -889,7 +905,7 @@ export function StoryWizard({
                   )}
 
                   {/* Editorial Photo Uploader */}
-                  {selectedTemplate !== "data-facts" && (
+                  {selectedTemplate !== "infographic-stats-grid" && selectedTemplate !== "versus-comparison" && (
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                         Editorial Photo (Local PC Browse or Web URL)
@@ -1205,7 +1221,7 @@ export function StoryWizard({
             <div className="flex items-center justify-between px-2">
               <span className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5 text-red-600" />
-                Live 9:16 Canvas Preview
+                Live Canvas Preview
               </span>
               <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
                 {activeLayout.name}
@@ -1214,289 +1230,257 @@ export function StoryWizard({
 
             {/* Mobile Mockup Frame */}
             <div className="w-full aspect-[9/16] rounded-[36px] bg-slate-950 p-3 shadow-2xl border-4 border-slate-800 relative overflow-hidden select-none">
-              {/* ─── TEMPLATE 1: BREAKING NEWS ─── */}
-              {selectedTemplate === "breaking-news" && (
-                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-black text-white">
-                  {activeSlide.backgroundMedia && (
-                    <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" priority />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/60 pointer-events-none" />
+              <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 text-white">
+                {/* Dynamic Background Image if available */}
+                {activeSlide.backgroundMedia && selectedTemplate !== "split-screen-card" && selectedTemplate !== "polaroid-photo-frame" && (
+                  <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover opacity-70" priority />
+                )}
 
-                  {/* Header */}
-                  <div className="relative z-10 space-y-2">
-                    <div className="flex gap-1">
-                      {slides.map((_, idx) => (
-                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/40">
-                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="flex items-center gap-2">
-                        <div className="px-2 py-0.5 rounded bg-red-600 font-black text-[9px] tracking-wider text-white shadow">
-                          USA DAILY
-                        </div>
-                        <span className="text-[10px] text-white/80 font-medium">2h ago</span>
-                      </div>
-                      <div className="flex gap-1 text-white/80 text-xs">•••</div>
-                    </div>
-                  </div>
-
-                  {/* Content Bottom */}
-                  <div className="relative z-10 space-y-2.5 pb-2">
-                    <span className="inline-block px-2.5 py-1 rounded bg-red-600 text-white font-black text-[9px] uppercase tracking-widest shadow-lg">
-                      {activeSlide.badgeText || "BREAKING NEWS"}
-                    </span>
-                    <h3 className="text-xl sm:text-2xl font-black text-white leading-tight uppercase drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
-                      {activeSlide.headingText}
-                    </h3>
-                    <p className="text-xs text-slate-200 leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] line-clamp-2">
-                      {activeSlide.descriptionText}
-                    </p>
-                    <div className="text-[9px] font-bold text-red-400 border-l-2 border-red-500 pl-2 uppercase tracking-wide">
-                      {activeSlide.locationDate || "JUNE 1, 2024 | CALIFORNIA, USA"}
-                    </div>
-                    <div className="text-center pt-2 text-[9px] font-black text-white/80 uppercase tracking-widest">
-                      ^ SWIPE UP FOR MORE
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ─── TEMPLATE 2: NEWS EXPLAINER (Clean Editorial) ─── */}
-              {selectedTemplate === "news-explainer" && (
-                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#f7f4ed] text-slate-900">
-                  {/* Header */}
-                  <div className="space-y-2">
-                    <div className="flex gap-1">
-                      {slides.map((_, idx) => (
-                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-slate-300">
-                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-slate-900" : "w-0"}`} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between text-slate-700 pt-1 text-[10px] font-bold">
-                      <span className="font-mono">{`0${activeSlideIndex + 1} / 0${slides.length}`}</span>
-                      <span className="font-black tracking-wider text-slate-950">USADAILY</span>
-                      <span className="text-xs">•••</span>
-                    </div>
-                  </div>
-
-                  {/* Editorial Typography & Framed Photo */}
-                  <div className="space-y-3 my-auto">
-                    <h3 className="font-serif font-bold text-lg sm:text-xl text-slate-950 leading-snug">
-                      {activeSlide.headingText}
-                    </h3>
-                    <div className="w-8 h-1 bg-red-600 rounded-full" />
-                    <p className="text-xs text-slate-700 leading-relaxed font-sans line-clamp-3">
-                      {activeSlide.descriptionText}
-                    </p>
-
-                    {activeSlide.backgroundMedia && (
-                      <div className="relative w-full h-28 rounded-xl overflow-hidden shadow-md border border-slate-300/80">
-                        <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom */}
-                  <div className="text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                    ^ SWIPE UP
-                  </div>
-                </div>
-              )}
-
-              {/* ─── TEMPLATE 3: PHOTO NEWS (Immersive) ─── */}
-              {selectedTemplate === "photo-news" && (
-                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-black text-white">
-                  {activeSlide.backgroundMedia && (
-                    <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" priority />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 pointer-events-none" />
-
-                  {/* Header */}
-                  <div className="relative z-10 space-y-2">
-                    <div className="flex gap-1">
-                      {slides.map((_, idx) => (
-                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/40">
-                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-end text-white/80 text-xs">•••</div>
-                  </div>
-
-                  {/* Bottom */}
-                  <div className="relative z-10 space-y-2 pb-2">
-                    <span className="inline-block px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase tracking-wider">
-                      {activeSlide.badgeText || "U.S. NEWS"}
-                    </span>
-                    <h3 className="font-serif font-bold text-xl text-white leading-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
-                      {activeSlide.headingText}
-                    </h3>
-                    <p className="text-xs text-slate-200 leading-snug drop-shadow line-clamp-2">
-                      {activeSlide.descriptionText}
-                    </p>
-                    <div className="text-center pt-2 text-[9px] font-black text-white/80 uppercase tracking-widest">
-                      ^ SWIPE UP
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ─── TEMPLATE 4: DATA / FACTS (Infographic) ─── */}
-              {selectedTemplate === "data-facts" && (
-                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#070d1d] text-white">
-                  {/* Header */}
-                  <div className="space-y-2">
-                    <div className="flex gap-1">
-                      {slides.map((_, idx) => (
-                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/20">
-                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-cyan-400" : "w-0"}`} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[8px] uppercase tracking-wider">
-                        {activeSlide.badgeText || "U.S. ECONOMY UPDATE"}
-                      </span>
-                      <span className="text-white/60 text-xs">•••</span>
-                    </div>
-                    <h3 className="text-base font-black text-white leading-tight">
-                      {activeSlide.headingText}
-                    </h3>
-                  </div>
-
-                  {/* 4 Metric Cards */}
-                  <div className="space-y-1.5 my-auto">
-                    {[
-                      { icon: Users, color: "text-cyan-400", stat: "272K", label: "Jobs added in May", sub: "vs. 165K in April" },
-                      { icon: TrendingUp, color: "text-emerald-400", stat: "3.9%", label: "Unemployment Rate", sub: "Unchanged from April" },
-                      { icon: DollarSign, color: "text-amber-400", stat: "4.1%", label: "Average Hourly Earnings", sub: "vs. May 2023" },
-                      { icon: Briefcase, color: "text-purple-400", stat: "8.1M", label: "Job Openings", sub: "at the end of April" },
-                    ].map((item, idx) => {
-                      const Icon = item.icon;
-                      return (
-                        <div key={idx} className="p-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2.5">
-                          <div className={`w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center ${item.color} flex-shrink-0`}>
-                            <Icon className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-baseline gap-2">
-                              <span className={`text-sm font-black ${item.color}`}>{item.stat}</span>
-                              <span className="text-[10px] font-bold text-white truncate">{item.label}</span>
-                            </div>
-                            <p className="text-[8.5px] text-slate-400">{item.sub}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="space-y-1 text-center">
-                    <p className="text-[8px] text-slate-400">
-                      {activeSlide.sourceText || "Source: U.S. Bureau of Labor Statistics"}
-                    </p>
-                    <div className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">
-                      ^ SWIPE UP FOR MORE
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ─── TEMPLATE 5: LIVE UPDATE (Timeline) ─── */}
-              {selectedTemplate === "live-update" && (
-                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#0d0f15] text-white">
-                  {/* Header */}
-                  <div className="space-y-1.5">
-                    <div className="flex gap-1">
-                      {slides.map((_, idx) => (
-                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/20">
-                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-red-500" : "w-0"}`} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase tracking-wider flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                        LIVE UPDATE
-                      </span>
-                      <span className="text-white/60 text-xs">•••</span>
-                    </div>
-                    <h3 className="text-sm font-black text-white leading-tight">
-                      {activeSlide.headingText}
-                    </h3>
-                    <p className="text-[9px] text-slate-400">{activeSlide.locationDate || "May 31, 2024"}</p>
-                  </div>
-
-                  {/* Connected Timeline */}
-                  <div className="border-l-2 border-red-600 pl-3 space-y-2.5 my-auto">
-                    {[
-                      { time: "2:45 PM", text: "Severe storms reported in Texas and Oklahoma." },
-                      { time: "3:30 PM", text: "Tornado warnings issued for 6 states." },
-                      { time: "4:10 PM", text: "Over 120,000 customers without power." },
-                      { time: "4:45 PM", text: "Rescue operations underway in affected areas." },
-                    ].map((item, idx) => (
-                      <div key={idx} className="relative">
-                        <div className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-red-600 ring-2 ring-[#0d0f15]" />
-                        <span className="text-[8px] font-black text-red-400 block">{item.time}</span>
-                        <p className="text-[9.5px] text-slate-200 leading-snug">{item.text}</p>
+                {/* Progress Indicators */}
+                <div className="relative z-30 space-y-2">
+                  <div className="flex gap-1">
+                    {slides.map((_, idx) => (
+                      <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/30">
+                        <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
                       </div>
                     ))}
                   </div>
-
-                  {/* Footer */}
-                  <div className="text-center text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                    ^ SWIPE UP FOR MORE
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="px-2 py-0.5 rounded bg-red-600 font-black text-[9px] text-white">
+                      USA DAILY
+                    </span>
+                    <span className="text-xs text-white/80 font-mono">
+                      {`0${activeSlideIndex + 1} / 0${slides.length}`}
+                    </span>
                   </div>
                 </div>
-              )}
 
-              {/* ─── TEMPLATE 6: ENTERTAINMENT (Magazine) ─── */}
-              {selectedTemplate === "entertainment-magazine" && (
-                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-black text-white">
-                  {activeSlide.backgroundMedia && (
-                    <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover opacity-80" priority />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-purple-950/20 to-black/60 pointer-events-none" />
+                {/* ─── 1. BREAKING BOLD ─── */}
+                {selectedTemplate === "breaking-bold" && (
+                  <div className="relative z-20 space-y-2.5 pb-2 mt-auto">
+                    <span className="inline-block px-2.5 py-0.5 rounded bg-red-600 text-white font-black text-[9px] uppercase tracking-wider">
+                      {activeSlide.badgeText || "BREAKING NEWS"}
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-white leading-tight uppercase drop-shadow">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="text-xs text-slate-200 leading-snug drop-shadow line-clamp-3">
+                      {activeSlide.descriptionText}
+                    </p>
+                    <p className="text-[9px] font-bold text-red-400 border-l-2 border-red-500 pl-2 uppercase">
+                      {activeSlide.locationDate}
+                    </p>
+                  </div>
+                )}
 
-                  {/* Header */}
-                  <div className="relative z-10 space-y-1.5">
-                    <div className="flex gap-1">
-                      {slides.map((_, idx) => (
-                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/30">
-                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-purple-500" : "w-0"}`} />
+                {/* ─── 2. SPLIT SCREEN CARD ─── */}
+                {selectedTemplate === "split-screen-card" && (
+                  <div className="absolute inset-0 flex flex-col justify-between bg-[#f7f4ed] text-slate-900 p-4 pt-14">
+                    {activeSlide.backgroundMedia && (
+                      <div className="relative w-full h-[45%] rounded-2xl overflow-hidden shadow-md border border-slate-300">
+                        <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" />
+                      </div>
+                    )}
+                    <div className="space-y-2 my-auto">
+                      <span className="inline-block px-2 py-0.5 rounded bg-slate-900 text-white font-bold text-[9px]">
+                        {activeSlide.badgeText || "EXPLAINER"}
+                      </span>
+                      <h3 className="font-serif font-bold text-base text-slate-950 leading-tight">
+                        {activeSlide.headingText}
+                      </h3>
+                      <div className="w-8 h-1 bg-red-600 rounded-full" />
+                      <p className="text-xs text-slate-700 leading-snug line-clamp-3">
+                        {activeSlide.descriptionText}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── 3. TOP RANK COUNTDOWN ─── */}
+                {selectedTemplate === "top-rank-countdown" && (
+                  <div className="absolute inset-0 flex flex-col justify-between p-4 pt-14 bg-slate-950 text-white">
+                    <div className="absolute right-2 top-8 text-[90px] font-black text-white/10 font-mono select-none leading-none">
+                      {activeSlide.rankNumber || "01"}
+                    </div>
+                    <div className="relative z-10 space-y-1">
+                      <span className="inline-block px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[8px] uppercase">
+                        {activeSlide.badgeText}
+                      </span>
+                    </div>
+                    {activeSlide.backgroundMedia && (
+                      <div className="relative z-10 w-full h-32 rounded-xl overflow-hidden shadow-xl border border-white/20 my-auto">
+                        <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" />
+                      </div>
+                    )}
+                    <div className="relative z-10 space-y-1 pb-1">
+                      <h3 className="text-sm font-black text-white">{activeSlide.headingText}</h3>
+                      <p className="text-xs text-slate-300 line-clamp-2">{activeSlide.descriptionText}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── 4. GLASSMORPHISM FLOATING CARD ─── */}
+                {selectedTemplate === "glassmorphism-card" && (
+                  <div className="relative z-20 my-auto p-3.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl space-y-2">
+                    <span className="inline-block px-2 py-0.5 rounded bg-cyan-500 text-slate-950 font-black text-[8px] uppercase">
+                      {activeSlide.badgeText}
+                    </span>
+                    <h3 className="text-sm font-black text-white leading-tight">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="text-xs text-slate-200 leading-snug line-clamp-3">
+                      {activeSlide.descriptionText}
+                    </p>
+                  </div>
+                )}
+
+                {/* ─── 5. POLAROID RETRO FRAME ─── */}
+                {selectedTemplate === "polaroid-photo-frame" && (
+                  <div className="absolute inset-0 flex flex-col justify-between p-4 pt-14 bg-[#f4ede4] text-slate-900">
+                    <h3 className="font-serif font-black text-sm text-slate-950 leading-tight">
+                      {activeSlide.headingText}
+                    </h3>
+                    <div className="relative my-auto bg-white p-2 pb-5 rounded shadow-lg border border-slate-300 rotate-[-2deg]">
+                      <div className="relative w-full h-28 rounded overflow-hidden">
+                        {activeSlide.backgroundMedia && (
+                          <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" />
+                        )}
+                      </div>
+                      <p className="text-[8px] text-slate-500 font-mono text-center mt-1">
+                        {activeSlide.locationDate}
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-snug line-clamp-2">{activeSlide.descriptionText}</p>
+                  </div>
+                )}
+
+                {/* ─── 6. INFOGRAPHIC STATS GRID ─── */}
+                {selectedTemplate === "infographic-stats-grid" && (
+                  <div className="space-y-3 my-auto">
+                    <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[8px] uppercase">
+                      {activeSlide.badgeText}
+                    </span>
+                    <h3 className="text-xs font-black text-white">{activeSlide.headingText}</h3>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { stat: "272K", label: "Jobs May", color: "text-cyan-400" },
+                        { stat: "3.9%", label: "Unemployment", color: "text-emerald-400" },
+                        { stat: "4.1%", label: "Wage Growth", color: "text-amber-400" },
+                        { stat: "8.1M", label: "Openings", color: "text-purple-400" },
+                      ].map((s, i) => (
+                        <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10">
+                          <span className={`text-sm font-black ${s.color} block`}>{s.stat}</span>
+                          <span className="text-[8px] text-slate-300">{s.label}</span>
                         </div>
                       ))}
                     </div>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-black text-[8px] uppercase tracking-wider">
-                        ENTERTAINMENT
-                      </span>
-                      <span className="text-white/60 text-xs">•••</span>
-                    </div>
+                  </div>
+                )}
 
-                    <h3 className="font-serif font-black text-2xl text-white mt-2 leading-none">
+                {/* ─── 7. CONNECTED TIMELINE ─── */}
+                {selectedTemplate === "connected-timeline" && (
+                  <div className="space-y-3 my-auto">
+                    <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase">
+                      LIVE TIMELINE
+                    </span>
+                    <h3 className="text-xs font-black text-white">{activeSlide.headingText}</h3>
+                    <div className="border-l-2 border-red-600 pl-3 space-y-2">
+                      {[
+                        { time: "2:45 PM", text: "Severe storms reported in Texas." },
+                        { time: "3:30 PM", text: "Tornado warnings issued for 6 states." },
+                      ].map((t, i) => (
+                        <div key={i} className="relative">
+                          <div className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-red-600" />
+                          <span className="text-[8px] font-black text-red-400">{t.time}</span>
+                          <p className="text-[9px] text-slate-200">{t.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── 8. BIG QUOTE SPOTLIGHT ─── */}
+                {selectedTemplate === "big-quote-spotlight" && (
+                  <div className="space-y-3 my-auto text-center">
+                    <span className="text-3xl text-amber-400 font-serif leading-none">“</span>
+                    <h3 className="font-serif italic text-sm font-bold text-white px-2">
                       {activeSlide.headingText}
                     </h3>
-                    <p className="font-serif italic text-xs text-pink-400 font-bold">
-                      {activeSlide.subheadText || "Stars in New Blockbuster Movie"}
+                    <p className="text-xs text-amber-400 font-bold not-italic">
+                      {activeSlide.quoteAuthor}
                     </p>
                   </div>
+                )}
 
-                  {/* Bottom */}
-                  <div className="relative z-10 space-y-2 pb-2">
-                    <p className="text-xs text-slate-200 line-clamp-2 leading-snug drop-shadow">
-                      {activeSlide.descriptionText}
-                    </p>
-                    <div className="py-2 px-3 rounded-full bg-purple-600 text-white text-[9px] font-bold flex items-center justify-center gap-1.5 shadow-xl">
-                      <span>{activeSlide.ctaLabel || "SWIPE UP FOR DETAILS"}</span>
-                      <ArrowRight className="w-3 h-3" />
+                {/* ─── 9. VERSUS COMPARISON ─── */}
+                {selectedTemplate === "versus-comparison" && (
+                  <div className="space-y-2 my-auto">
+                    <h3 className="text-xs font-black text-center">{activeSlide.headingText}</h3>
+                    <div className="p-2 rounded-lg bg-cyan-950/40 border border-cyan-500/40">
+                      <span className="text-[10px] font-bold text-cyan-300">Quantum Neural</span>
+                      <span className="text-xs font-black text-cyan-400 float-right">100 TOPS</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-purple-950/40 border border-purple-500/40">
+                      <span className="text-[10px] font-bold text-purple-300">Traditional GPU</span>
+                      <span className="text-xs font-black text-purple-400 float-right">45 TOPS</span>
                     </div>
                   </div>
+                )}
+
+                {/* ─── 10. MAGAZINE CUTOUT ─── */}
+                {selectedTemplate === "magazine-cutout" && (
+                  <div className="space-y-2 pb-2 mt-auto">
+                    <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-black text-[8px] uppercase">
+                      {activeSlide.badgeText}
+                    </span>
+                    <h3 className="font-serif font-black text-2xl text-white leading-none">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="font-serif italic text-xs text-pink-400">{activeSlide.subheadText}</p>
+                    <p className="text-xs text-slate-200 line-clamp-2">{activeSlide.descriptionText}</p>
+                  </div>
+                )}
+
+                {/* ─── 11. RECIPE STEP CARD ─── */}
+                {selectedTemplate === "recipe-step-card" && (
+                  <div className="space-y-2 my-auto">
+                    <span className="px-2 py-0.5 rounded bg-rose-700 text-white font-black text-[8px] uppercase">
+                      {activeSlide.badgeText}
+                    </span>
+                    <h3 className="font-serif font-bold text-xs text-white">{activeSlide.headingText}</h3>
+                    <div className="space-y-1">
+                      {["Boil pasta 90s.", "Swirl butter & pasta water.", "Plate with shaved truffles."].map((step, idx) => (
+                        <div key={idx} className="p-1 rounded bg-white/5 border border-white/10 text-[9px] text-slate-200">
+                          {idx + 1}. {step}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── 12. SPORTS SCOREBOARD ─── */}
+                {selectedTemplate === "sports-scoreboard" && (
+                  <div className="space-y-2 my-auto">
+                    <div className="p-2 rounded-xl bg-orange-600 text-white flex justify-between text-xs font-black">
+                      <span>LAL 114</span>
+                      <span className="text-[9px] bg-black/40 px-1 rounded">OT</span>
+                      <span>108 BOS</span>
+                    </div>
+                    <h3 className="text-xs font-black text-white">{activeSlide.headingText}</h3>
+                    <div className="flex gap-1 text-center text-[9px]">
+                      <div className="flex-1 p-1 bg-white/10 rounded font-black text-orange-400">44 PTS</div>
+                      <div className="flex-1 p-1 bg-white/10 rounded font-black text-orange-400">12 REB</div>
+                      <div className="flex-1 p-1 bg-white/10 rounded font-black text-orange-400">8 AST</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bottom Bounce */}
+                <div className="relative z-20 pt-1 flex flex-col items-center justify-center text-white/80 animate-bounce">
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span className="text-[7.5px] font-black uppercase tracking-widest">SWIPE UP</span>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Quick Navigation Controller */}
