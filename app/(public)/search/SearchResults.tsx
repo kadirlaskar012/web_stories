@@ -28,34 +28,34 @@ export default async function SearchResults({ query, page }: Props) {
       where: {
         status: StoryStatus.PUBLISHED,
         OR: [
-          { title: { contains: query, mode: "insensitive" } },
-          { description: { contains: query, mode: "insensitive" } },
-          { excerpt: { contains: query, mode: "insensitive" } },
-          { category: { name: { contains: query, mode: "insensitive" } } },
-          { author: { name: { contains: query, mode: "insensitive" } } },
-          { tags: { some: { tag: { name: { contains: query, mode: "insensitive" } } } } },
+          { title: { contains: query } },
+          { description: { contains: query } },
+          { excerpt: { contains: query } },
+          { category: { name: { contains: query } } },
+          { author: { name: { contains: query } } },
+          { tags: { some: { tag: { name: { contains: query } } } } },
         ],
       },
       include: {
-        author: { select: { name: true, slug: true } },
+        author: { select: { name: true, slug: true, avatar: true } },
         category: { select: { name: true, slug: true, color: true } },
       },
       orderBy: { publishedAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-    }),
+    }).catch(() => []),
     prisma.story.count({
       where: {
         status: StoryStatus.PUBLISHED,
         OR: [
-          { title: { contains: query, mode: "insensitive" } },
-          { description: { contains: query, mode: "insensitive" } },
-          { excerpt: { contains: query, mode: "insensitive" } },
-          { category: { name: { contains: query, mode: "insensitive" } } },
-          { author: { name: { contains: query, mode: "insensitive" } } },
+          { title: { contains: query } },
+          { description: { contains: query } },
+          { excerpt: { contains: query } },
+          { category: { name: { contains: query } } },
+          { author: { name: { contains: query } } },
         ],
       },
-    }),
+    }).catch(() => 0),
   ]);
 
   if (stories.length === 0) {
@@ -66,25 +66,25 @@ export default async function SearchResults({ query, page }: Props) {
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-6">
-        {total} result{total !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
+      <p className="text-sm font-semibold text-slate-500 mb-6">
+        Found {total} visual stor{total === 1 ? "y" : "ies"} for &ldquo;{query}&rdquo;
       </p>
 
-      <div className="space-y-6 divide-y divide-gray-100">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stories.map((story) => (
-          <div key={story.id} className="pt-6 first:pt-0">
-            <StoryListCard story={story} />
-          </div>
+          <StoryListCard key={story.id} story={story} />
         ))}
       </div>
 
-      <div className="mt-10 flex justify-center">
-        <ServerPagination
-          page={page}
-          totalPages={totalPages}
-          buildHref={(p) => `/search?q=${encodeURIComponent(query)}&page=${p}`}
-        />
-      </div>
+      {totalPages > 1 && (
+        <div className="mt-10 flex justify-center">
+          <ServerPagination
+            page={page}
+            totalPages={totalPages}
+            buildHref={(p) => `/search?q=${encodeURIComponent(query)}&page=${p}`}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,27 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import { Metadata } from "next";
 import Link from "next/link";
-import { prisma } from "@/lib/db";
-import { StoryViewer } from "@/components/story/StoryViewer";
-import { StoryCard } from "@/components/story/StoryCard";
-import { getSiteSettings } from "@/lib/settings";
-import { generateStoryMetadata } from "@/lib/seo/metadata";
-import { generateStoryJsonLd, generateBreadcrumbJsonLd } from "@/lib/seo/structured-data";
-import { absoluteUrl, formatDate } from "@/lib/utils";
+import Image from "next/image";
 import { StoryStatus } from "@prisma/client";
-import type { Metadata } from "next";
+import { prisma } from "@/lib/db";
+import { StoryCard } from "@/components/story/StoryCard";
 import StoryViewerWrapper from "./StoryViewerWrapper";
-
-export const revalidate = 60;
+import { generateStoryMetadata } from "@/lib/seo/metadata";
+import {
+  generateStoryJsonLd,
+  generateBreadcrumbJsonLd,
+} from "@/lib/seo/structured-data";
+import { getSiteSettings } from "@/lib/settings";
+import { absoluteUrl, formatDate } from "@/lib/utils";
+import {
+  Share2,
+  Eye,
+  Calendar,
+  Sparkles,
+  Zap,
+  ArrowLeft,
+  ChevronRight,
+} from "lucide-react";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -24,9 +33,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     prisma.story.findUnique({
       where: { slug, status: StoryStatus.PUBLISHED },
       include: { author: true, category: true },
-    }),
+    }).catch(() => null),
     getSiteSettings(),
   ]);
+
   if (!story) return { title: "Story Not Found" };
   return generateStoryMetadata(story, settings);
 }
@@ -36,6 +46,7 @@ export async function generateStaticParams() {
     const stories = await prisma.story.findMany({
       where: { status: StoryStatus.PUBLISHED },
       select: { slug: true },
+      take: 20,
     });
     return stories.map((s) => ({ slug: s.slug }));
   } catch {
@@ -58,42 +69,49 @@ export default async function StoryPage({ params }: Props) {
         },
         tags: { include: { tag: true } },
       },
-    }),
+    }).catch(() => null),
     getSiteSettings(),
   ]);
 
   if (!story) notFound();
 
-  // Increment view count (fire-and-forget)
-  prisma.story.update({
-    where: { id: story.id },
-    data: { viewCount: { increment: 1 } },
-  }).catch(() => {});
+  // Increment view count
+  prisma.story
+    .update({
+      where: { id: story.id },
+      data: { viewCount: { increment: 1 } },
+    })
+    .catch(() => {});
 
-  // Related stories
-  const relatedStories = await prisma.story.findMany({
-    where: {
-      status: StoryStatus.PUBLISHED,
-      categoryId: story.categoryId,
-      id: { not: story.id },
-    },
-    include: {
-      author: { select: { name: true, slug: true } },
-      category: { select: { name: true, slug: true, color: true } },
-    },
-    orderBy: { viewCount: "desc" },
-    take: 6,
-  });
+  // Related stories in same category
+  const relatedStories = await prisma.story
+    .findMany({
+      where: {
+        status: StoryStatus.PUBLISHED,
+        categoryId: story.categoryId,
+        id: { not: story.id },
+      },
+      include: {
+        author: { select: { name: true, slug: true, avatar: true } },
+        category: { select: { name: true, slug: true, color: true } },
+      },
+      orderBy: { viewCount: "desc" },
+      take: 4,
+    })
+    .catch(() => []);
 
   const articleJsonLd = generateStoryJsonLd(story, settings);
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: "Home", url: absoluteUrl("/") },
-    { name: story.category.name, url: absoluteUrl(`/category/${story.category.slug}`) },
+    {
+      name: story.category.name,
+      url: absoluteUrl(`/category/${story.category.slug}`),
+    },
     { name: story.title, url: absoluteUrl(`/story/${story.slug}`) },
   ]);
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* Structured Data */}
       <script
         type="application/ld+json"
@@ -104,122 +122,164 @@ export default async function StoryPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <article className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="mb-6">
-          <ol className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
-            <li><Link href="/" className="hover:text-gray-900">Home</Link></li>
-            <li aria-hidden="true">/</li>
-            <li>
-              <Link
-                href={`/category/${story.category.slug}`}
-                className="hover:text-gray-900"
-              >
-                {story.category.name}
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li className="text-gray-900 font-medium line-clamp-1">{story.title}</li>
-          </ol>
-        </nav>
+      {/* Top Header / Breadcrumb */}
+      <div className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-16 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-slate-400 truncate max-w-[70%]">
+            <Link href="/" className="hover:text-white flex items-center gap-1 transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-slate-600" />
+            <Link
+              href={`/category/${story.category.slug}`}
+              className="hover:text-white transition-colors"
+            >
+              {story.category.name}
+            </Link>
+            <ChevronRight className="w-3 h-3 text-slate-600 hidden sm:inline" />
+            <span className="text-slate-300 font-medium truncate hidden sm:inline">{story.title}</span>
+          </nav>
 
-        <div className="grid lg:grid-cols-[1fr_360px] gap-8 lg:gap-12">
-          {/* Main content */}
-          <div>
-            {/* Header */}
-            <header className="mb-6">
-              <Link
-                href={`/category/${story.category.slug}`}
-                className="inline-block px-3 py-1 rounded-full text-xs font-semibold text-white mb-3"
-                style={{ backgroundColor: story.category.color || "#6366f1" }}
+          <Link
+            href={`/api/stories/${story.id}/amp`}
+            target="_blank"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/30 text-[11px] font-bold hover:bg-amber-400/20 transition-colors"
+          >
+            <Zap className="w-3 h-3 fill-amber-400" />
+            <span>AMP Story</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Interactive Story Showcase */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+          {/* Centered / Left: 9:16 Interactive Web Story Player */}
+          <div className="lg:col-span-6 xl:col-span-5 flex justify-center">
+            <div className="w-full max-w-[360px] sm:max-w-[380px] h-[640px] sm:h-[680px] rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative bg-black">
+              <StoryViewerWrapper
+                pages={story.pages}
+                title={story.title}
+                authorName={story.author.name}
+                publisherName={settings.publisher_name}
+              />
+            </div>
+          </div>
+
+          {/* Right Column: Editorial Byline & Metadata */}
+          <div className="lg:col-span-6 xl:col-span-7 space-y-6 pt-2">
+            <div className="space-y-3">
+              <span
+                className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm"
+                style={{ backgroundColor: story.category.color || "#3b82f6" }}
               >
                 {story.category.name}
-              </Link>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight mb-3">
+              </span>
+
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white leading-tight">
                 {story.title}
               </h1>
+
               {story.description && (
-                <p className="text-base text-gray-600 leading-relaxed mb-4">
+                <p className="text-slate-300 text-base leading-relaxed">
                   {story.description}
                 </p>
               )}
-              <div className="flex items-center gap-4">
-                <Link
-                  href={`/author/${story.author.slug}`}
-                  className="flex items-center gap-2 group"
-                  aria-label={`Author: ${story.author.name}`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                    {story.author.avatar ? (
-                      <Image
-                        src={story.author.avatar}
-                        alt={story.author.name}
-                        width={32}
-                        height={32}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600 text-xs font-bold">
-                        {story.author.name[0]}
-                      </div>
-                    )}
+            </div>
+
+            {/* Author Card */}
+            <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-between">
+              <Link
+                href={`/author/${story.author.slug}`}
+                className="flex items-center gap-3 group"
+              >
+                <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-700 border-2 border-slate-600 group-hover:border-blue-500 transition-colors">
+                  {story.author.avatar ? (
+                    <Image
+                      src={story.author.avatar}
+                      alt={story.author.name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center font-bold text-white text-sm">
+                      {story.author.name[0]}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
+                    {story.author.name}
+                  </h3>
+                  <p className="text-xs text-slate-400">Visual Contributor</p>
+                </div>
+              </Link>
+
+              <div className="text-right text-xs text-slate-400 space-y-1">
+                {story.publishedAt && (
+                  <div className="flex items-center justify-end gap-1">
+                    <Calendar className="w-3 h-3 text-slate-500" />
+                    <span>{formatDate(story.publishedAt)}</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {story.author.name}
-                    </p>
-                    {story.publishedAt && (
-                      <time
-                        dateTime={story.publishedAt.toISOString()}
-                        className="text-xs text-gray-400"
-                      >
-                        {formatDate(story.publishedAt)}
-                      </time>
-                    )}
+                )}
+                {story.viewCount > 0 && (
+                  <div className="flex items-center justify-end gap-1">
+                    <Eye className="w-3 h-3 text-slate-500" />
+                    <span>{story.viewCount.toLocaleString()} visual reads</span>
                   </div>
-                </Link>
+                )}
               </div>
-            </header>
+            </div>
 
-            {/* Story Viewer */}
-            <StoryViewerWrapper
-              pages={story.pages}
-              title={story.title}
-              authorName={story.author.name}
-              publisherName={settings.publisher_name}
-            />
-
-            {/* Tags */}
+            {/* Tags Strip */}
             {story.tags.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2">
-                {story.tags.map(({ tag }) => (
-                  <Link
-                    key={tag.id}
-                    href={`/tag/${tag.slug}`}
-                    className="px-3 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors"
-                  >
-                    #{tag.name}
-                  </Link>
-                ))}
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Topics in this Story
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {story.tags.map(({ tag }) => (
+                    <Link
+                      key={tag.id}
+                      href={`/tag/${tag.slug}`}
+                      className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white border border-slate-700 transition-colors"
+                    >
+                      #{tag.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Sidebar - Related Stories */}
-          {relatedStories.length > 0 && (
-            <aside>
-              <h2 className="text-lg font-bold text-gray-900 mb-4">
-                More from {story.category.name}
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
-                {relatedStories.map((s) => (
-                  <StoryCard key={s.id} story={s} />
-                ))}
-              </div>
-            </aside>
-          )}
+            {/* How to Interact Info Card */}
+            <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/40 text-xs text-blue-200 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-blue-300">
+                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                Interactive Viewer Tips
+              </p>
+              <p className="text-slate-300 leading-relaxed">
+                Tap on the <strong>right</strong> side of the story to advance, tap on the <strong>left</strong> to go back, or tap the <strong>center</strong> to pause. On desktop, you can also use your keyboard arrow keys (<kbd className="bg-slate-800 px-1 py-0.5 rounded text-white">←</kbd> / <kbd className="bg-slate-800 px-1 py-0.5 rounded text-white">→</kbd>).
+              </p>
+            </div>
+          </div>
         </div>
-      </article>
-    </>
+
+        {/* Related Stories Section */}
+        {relatedStories.length > 0 && (
+          <section className="mt-16 pt-12 border-t border-slate-800">
+            <h2 className="text-xl sm:text-2xl font-black text-white mb-6">
+              More in {story.category.name}
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+              {relatedStories.map((s) => (
+                <StoryCard key={s.id} story={s} />
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
   );
 }

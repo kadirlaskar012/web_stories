@@ -1,287 +1,431 @@
 import Link from "next/link";
 import Image from "next/image";
+import { StoryStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { StoryCard } from "@/components/story/StoryCard";
 import { getSiteSettings } from "@/lib/settings";
-import { generateWebSiteJsonLd } from "@/lib/seo/structured-data";
-import { absoluteUrl, formatDate } from "@/lib/utils";
-import { ArrowRight, TrendingUp, Clock } from "lucide-react";
-import { StoryStatus } from "@prisma/client";
+import {
+  Flame,
+  Sparkles,
+  ArrowRight,
+  TrendingUp,
+  Compass,
+  Play,
+  Eye,
+  CheckCircle2,
+  Users,
+  Layers,
+} from "lucide-react";
 
-const STORIES_PER_SECTION = 6;
-
-export const revalidate = 60; // ISR: revalidate every 60 seconds
+export const revalidate = 60;
 
 export default async function HomePage() {
-  const settings = await getSiteSettings();
-
-  const [featuredStory, latestStories, trendingStories, categories] =
+  const [featuredStories, trendingStories, latestStories, categories, authors, settings] =
     await Promise.all([
-      // Featured story
-      prisma.story.findFirst({
+      // Featured stories
+      prisma.story.findMany({
         where: { status: StoryStatus.PUBLISHED, isFeatured: true },
         include: {
-          author: { select: { name: true, slug: true } },
+          author: { select: { name: true, slug: true, avatar: true } },
           category: { select: { name: true, slug: true, color: true } },
         },
         orderBy: { publishedAt: "desc" },
-      }).catch(() => null),
+        take: 3,
+      }).catch(() => []),
+
+      // Trending stories (by views)
+      prisma.story.findMany({
+        where: { status: StoryStatus.PUBLISHED },
+        include: {
+          author: { select: { name: true, slug: true, avatar: true } },
+          category: { select: { name: true, slug: true, color: true } },
+        },
+        orderBy: { viewCount: "desc" },
+        take: 6,
+      }).catch(() => []),
+
       // Latest stories
       prisma.story.findMany({
         where: { status: StoryStatus.PUBLISHED },
         include: {
-          author: { select: { name: true, slug: true } },
+          author: { select: { name: true, slug: true, avatar: true } },
           category: { select: { name: true, slug: true, color: true } },
         },
         orderBy: { publishedAt: "desc" },
-        take: STORIES_PER_SECTION,
+        take: 8,
       }).catch(() => []),
-      // Trending stories (by view count)
-      prisma.story.findMany({
-        where: { status: StoryStatus.PUBLISHED },
-        include: {
-          author: { select: { name: true, slug: true } },
-          category: { select: { name: true, slug: true, color: true } },
-        },
-        orderBy: { viewCount: "desc" },
-        take: 5,
-      }).catch(() => []),
-      // Categories with counts
+
+      // Categories with story counts
       prisma.category.findMany({
         orderBy: { order: "asc" },
-        take: 8,
+        take: 6,
         include: {
           _count: {
-            select: { stories: { where: { status: StoryStatus.PUBLISHED } } },
+            select: { stories: true },
           },
         },
       }).catch(() => []),
+
+      // Authors with story counts
+      prisma.author.findMany({
+        take: 4,
+        orderBy: { createdAt: "asc" },
+        include: {
+          _count: {
+            select: { stories: true },
+          },
+        },
+      }).catch(() => []),
+
+      getSiteSettings(),
     ]);
 
-  const websiteJsonLd = generateWebSiteJsonLd(settings);
+  const heroStory = featuredStories[0] || latestStories[0];
 
   return (
-    <>
-      {/* Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-      />
+    <div className="min-h-screen bg-slate-50/50 pb-20">
+      {/* ─── Hero Section ─────────────────────────────────────────────────── */}
+      {heroStory && (
+        <section className="relative overflow-hidden bg-slate-950 text-white pt-8 pb-16 lg:py-20">
+          {/* Ambient Lighting & Glow */}
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
 
-      {/* ─── HERO ─────────────────────────────────────────────────────── */}
-      {featuredStory ? (
-        <section
-          className="relative overflow-hidden bg-gray-900"
-          aria-labelledby="hero-title"
-        >
-          {featuredStory.coverImage && (
-            <Image
-              src={featuredStory.coverImage}
-              alt={featuredStory.title}
-              fill
-              className="object-cover opacity-40"
-              priority
-              quality={90}
-              sizes="100vw"
-            />
-          )}
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-32">
-            <div className="max-w-2xl">
-              <span
-                className="inline-block px-3 py-1 rounded-full text-xs font-semibold text-white mb-4"
-                style={{
-                  backgroundColor:
-                    featuredStory.category.color || "#6366f1",
-                }}
-              >
-                {featuredStory.category.name}
-              </span>
-              <h1
-                id="hero-title"
-                className="text-3xl sm:text-5xl font-bold text-white leading-tight mb-4"
-              >
-                {featuredStory.title}
-              </h1>
-              {featuredStory.description && (
-                <p className="text-lg text-white/80 mb-6 leading-relaxed line-clamp-2">
-                  {featuredStory.description}
-                </p>
-              )}
-              <div className="flex items-center gap-4 mb-8 text-white/60 text-sm">
-                <span>By {featuredStory.author.name}</span>
-                {featuredStory.publishedAt && (
-                  <time dateTime={featuredStory.publishedAt.toISOString()}>
-                    {formatDate(featuredStory.publishedAt)}
-                  </time>
-                )}
-              </div>
-              <Link
-                href={`/story/${featuredStory.slug}`}
-                className="inline-flex items-center gap-2 bg-white text-gray-900 px-6 py-3 rounded-full font-semibold text-sm hover:bg-gray-100 transition-colors"
-              >
-                Read Story
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section className="bg-gray-900 py-20">
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold text-white mb-4">
-              {settings.site_name}
-            </h1>
-            <p className="text-xl text-white/70 mb-8">
-              {settings.site_description}
-            </p>
-            <Link
-              href="/stories"
-              className="inline-flex items-center gap-2 bg-white text-gray-900 px-6 py-3 rounded-full font-semibold"
-            >
-              Browse Stories
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {/* ─── LATEST STORIES ───────────────────────────────────────────── */}
-      {latestStories.length > 0 && (
-        <section className="py-12 sm:py-16" aria-labelledby="latest-heading">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-gray-400" aria-hidden="true" />
-                <h2
-                  id="latest-heading"
-                  className="text-xl font-bold text-gray-900"
-                >
-                  Latest Stories
-                </h2>
-              </div>
-              <Link
-                href="/latest"
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
-              >
-                View all
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </Link>
-            </div>
-
-            {/* Horizontal scroll on mobile, grid on desktop */}
-            <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-6 sm:overflow-visible sm:pb-0">
-              {latestStories.map((story, i) => (
-                <div
-                  key={story.id}
-                  className="flex-shrink-0 w-44 sm:w-auto snap-start"
-                >
-                  <StoryCard story={story} priority={i < 3} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ─── TRENDING ─────────────────────────────────────────────────── */}
-      {trendingStories.length > 0 && (
-        <section
-          className="py-10 bg-gray-50"
-          aria-labelledby="trending-heading"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center gap-2 mb-6">
-              <TrendingUp
-                className="w-5 h-5 text-orange-500"
-                aria-hidden="true"
-              />
-              <h2
-                id="trending-heading"
-                className="text-xl font-bold text-gray-900"
-              >
-                Trending Now
-              </h2>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-4">
-              {trendingStories.map((story, i) => (
-                <Link
-                  key={story.id}
-                  href={`/story/${story.slug}`}
-                  className="flex items-center gap-4 group"
-                  aria-label={`Trending #${i + 1}: ${story.title}`}
-                >
-                  <span className="text-3xl font-black text-gray-200 leading-none w-10 text-center flex-shrink-0">
-                    {i + 1}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              {/* Left Column: Editorial Headline & Actions */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Story of the Day
                   </span>
-                  <div className="relative w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200">
-                    {story.coverImage && (
-                      <Image
-                        src={story.coverImage}
-                        alt={story.title}
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                      />
-                    )}
+                  <span
+                    className="px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm"
+                    style={{ backgroundColor: heroStory.category.color || "#3b82f6" }}
+                  >
+                    {heroStory.category.name}
+                  </span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-[1.15] text-white">
+                  {heroStory.title}
+                </h1>
+
+                <p className="text-slate-300 text-base sm:text-lg leading-relaxed line-clamp-3 max-w-2xl">
+                  {heroStory.description || heroStory.excerpt}
+                </p>
+
+                {/* Author & Metrics */}
+                <div className="flex items-center gap-4 py-2 text-sm text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-700 relative flex-shrink-0">
+                      {heroStory.author.avatar ? (
+                        <Image
+                          src={heroStory.author.avatar}
+                          alt={heroStory.author.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center font-bold text-xs">
+                          {heroStory.author.name[0]}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white leading-none">{heroStory.author.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Verified Creator</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
+
+                  {heroStory.viewCount > 0 && (
+                    <>
+                      <span className="text-slate-600">|</span>
+                      <div className="flex items-center gap-1 text-slate-300">
+                        <Eye className="w-4 h-4 text-slate-400" />
+                        <span>{heroStory.viewCount.toLocaleString()} visual reads</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* CTAs */}
+                <div className="flex flex-wrap items-center gap-4 pt-2">
+                  <Link
+                    href={`/story/${heroStory.slug}`}
+                    className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-blue-600/30 hover:shadow-blue-500/50 hover:scale-105 transition-all duration-200"
+                  >
+                    <Play className="w-4 h-4 fill-white" />
+                    <span>Watch Full Story</span>
+                  </Link>
+                  <Link
+                    href="/stories"
+                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold text-sm sm:text-base backdrop-blur-md border border-white/10 transition-colors"
+                  >
+                    <span>Browse All</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right Column: 9:16 Interactive Canvas Preview */}
+              <div className="lg:col-span-5 flex justify-center lg:justify-end">
+                <Link
+                  href={`/story/${heroStory.slug}`}
+                  className="group relative block w-full max-w-[280px] sm:max-w-[320px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl shadow-black/80 border border-white/15 transform hover:-translate-y-2 transition-all duration-300"
+                  aria-label={`Open story: ${heroStory.title}`}
+                >
+                  {/* Ambient Backlight */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center filter blur-2xl opacity-60 scale-110 pointer-events-none"
+                    style={{ backgroundImage: `url(${heroStory.coverImage})` }}
+                  />
+
+                  {/* High-Res Story Slide Cover */}
+                  {heroStory.coverImage && (
+                    <Image
+                      src={heroStory.coverImage}
+                      alt={heroStory.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                      priority
+                      quality={90}
+                    />
+                  )}
+
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+
+                  {/* Pulsing Play Button */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-md border border-white/40 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-blue-600 transition-all shadow-xl">
+                      <Play className="w-7 h-7 fill-current ml-1" />
+                    </div>
+                  </div>
+
+                  {/* Story Card Details */}
+                  <div className="absolute bottom-0 inset-x-0 p-5 space-y-2">
                     <span
-                      className="text-xs font-semibold"
-                      style={{ color: story.category.color || "#6366f1" }}
+                      className="text-[10px] font-extrabold uppercase tracking-wider text-white px-2.5 py-1 rounded-full w-fit inline-block"
+                      style={{ backgroundColor: heroStory.category.color || "#3b82f6" }}
                     >
-                      {story.category.name}
+                      {heroStory.category.name}
                     </span>
-                    <h3 className="mt-0.5 text-sm font-semibold text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
-                      {story.title}
+                    <h3 className="text-white font-bold text-base leading-snug line-clamp-2">
+                      {heroStory.title}
                     </h3>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {story.viewCount.toLocaleString()} views
+                    <p className="text-white/70 text-xs flex items-center gap-2">
+                      <span>By {heroStory.author.name}</span>
+                      <span>·</span>
+                      <span>Tap to play</span>
                     </p>
                   </div>
                 </Link>
-              ))}
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* ─── CATEGORIES ───────────────────────────────────────────────── */}
-      {categories.length > 0 && (
-        <section className="py-12 sm:py-16" aria-labelledby="categories-heading">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <h2
-              id="categories-heading"
-              className="text-xl font-bold text-gray-900 mb-6"
-            >
-              Browse by Category
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-              {categories.map((cat) => (
-                <Link
-                  key={cat.slug}
-                  href={`/category/${cat.slug}`}
-                  className="group flex flex-col items-center gap-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all text-center"
-                >
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                    style={{ backgroundColor: cat.color || "#6366f1" }}
-                    aria-hidden="true"
-                  >
-                    {cat.name[0]}
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 group-hover:text-gray-900 transition-colors leading-tight">
-                    {cat.name}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {cat._count.stories} stories
-                  </span>
-                </Link>
-              ))}
+      {/* ─── Trending Stories (Snap Rail) ─────────────────────────────────── */}
+      {trendingStories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-12 sm:pt-16">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 shadow-sm">
+                <Flame className="w-5 h-5 fill-orange-500" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  Trending Now
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">Most viewed visual narratives this week</p>
+              </div>
             </div>
+            <Link
+              href="/trending"
+              className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:gap-2 transition-all"
+            >
+              See All <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Horizontal Scroll Rail */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-5">
+            {trendingStories.map((story, index) => (
+              <StoryCard key={story.id} story={story} rank={index + 1} />
+            ))}
           </div>
         </section>
       )}
-    </>
+
+      {/* ─── Topic Explorer (Category Hub) ────────────────────────────────── */}
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  Explore Topics
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">Curated collections tailored to your interests</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            {categories.map((cat) => (
+              <Link
+                key={cat.id}
+                href={`/category/${cat.slug}`}
+                className="group relative p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
+              >
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-sm mb-3 group-hover:scale-110 transition-transform"
+                  style={{ backgroundColor: cat.color || "#3b82f6" }}
+                >
+                  {cat.name[0]}
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                    {cat.name}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {cat._count?.stories || 0} {cat._count?.stories === 1 ? "story" : "stories"}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Latest Stories Grid ─────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                Latest Visual Stories
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">Fresh visual narratives published daily</p>
+            </div>
+          </div>
+          <Link
+            href="/stories"
+            className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:gap-2 transition-all"
+          >
+            View Library <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+          {latestStories.map((story) => (
+            <StoryCard key={story.id} story={story} />
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Creator / Storyteller Spotlight ───────────────────────────────── */}
+      {authors.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 shadow-sm">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  Featured Storytellers
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">Award-winning creators sharing their perspectives</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {authors.map((author) => (
+              <Link
+                key={author.id}
+                href={`/author/${author.slug}`}
+                className="group p-5 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+              >
+                <div className="relative w-14 h-14 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border-2 border-slate-100 group-hover:border-blue-500 transition-colors">
+                  {author.avatar ? (
+                    <Image
+                      src={author.avatar}
+                      alt={author.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-blue-600 text-white font-bold text-lg">
+                      {author.name[0]}
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                      {author.name}
+                    </h3>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                  </div>
+                  <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                    {author.bio || "Visual Storyteller"}
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-400 mt-1">
+                    {author._count?.stories || 0} stories published
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Newsletter Digest Section ─────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-8 sm:p-12 shadow-xl border border-white/10">
+          <div className="relative z-10 max-w-2xl space-y-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+              <Sparkles className="w-3.5 h-3.5" />
+              Daily Visual Digest
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+              Get the best visual stories delivered every morning
+            </h2>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              Curated Web Stories on technology, global cultures, design trends, and breaking science. No spam, ever.
+            </p>
+            <form
+              action="#"
+              className="flex flex-col sm:flex-row gap-3 pt-2 max-w-md"
+            >
+              <input
+                type="email"
+                placeholder="Enter your email address"
+                className="px-4 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 backdrop-blur-sm"
+                required
+              />
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex-shrink-0"
+              >
+                Subscribe Free
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
