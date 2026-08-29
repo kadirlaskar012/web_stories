@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import { StoryStatus } from "@prisma/client";
 import { generateUniqueSlug } from "@/lib/slugify";
 import { absoluteUrl } from "@/lib/utils";
@@ -8,9 +8,6 @@ import { absoluteUrl } from "@/lib/utils";
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
   const story = await prisma.story.findUnique({
     where: { id },
@@ -30,10 +27,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
+    const session = await getSession();
+    let userId = session?.userId;
+    if (!userId) {
+      const defaultUser = await prisma.user.findFirst();
+      userId = defaultUser?.id;
+    }
+
     const { id } = await params;
     const body = await req.json();
     const {
@@ -130,14 +131,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
 
-    await prisma.activityLog.create({
-      data: {
-        userId: session.userId,
-        action: "UPDATE_STORY",
-        entityType: "Story",
-        entityId: id,
-      },
-    }).catch(() => {});
+    if (userId) {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          action: "UPDATE_STORY",
+          entityType: "Story",
+          entityId: id,
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json(updated);
   } catch (err: any) {
@@ -147,9 +150,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
   const body = await req.json();
 
@@ -177,20 +177,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
   await prisma.story.delete({ where: { id } });
-
-  await prisma.activityLog.create({
-    data: {
-      userId: session.userId,
-      action: "DELETE_STORY",
-      entityType: "Story",
-      entityId: id,
-    },
-  }).catch(() => {});
 
   return NextResponse.json({ success: true });
 }

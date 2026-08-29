@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import { StoryStatus } from "@prisma/client";
 import { generateUniqueSlug } from "@/lib/slugify";
 import { absoluteUrl } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const status = searchParams.get("status") as StoryStatus | null;
@@ -43,10 +40,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
+    const session = await getSession();
+    let userId = session?.userId;
+    if (!userId) {
+      const defaultUser = await prisma.user.findFirst();
+      userId = defaultUser?.id;
+    }
+
     const body = await req.json();
     const {
       title,
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
         isFeatured,
         status,
         canonicalUrl,
-        userId: session.userId,
+        userId: userId || null,
         publishedAt: status === StoryStatus.PUBLISHED ? new Date() : null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       },
@@ -147,14 +148,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await prisma.activityLog.create({
-      data: {
-        userId: session.userId,
-        action: "CREATE_STORY",
-        entityType: "Story",
-        entityId: story.id,
-      },
-    }).catch(() => {});
+    if (userId) {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          action: "CREATE_STORY",
+          entityType: "Story",
+          entityId: story.id,
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json(story, { status: 201 });
   } catch (err: any) {

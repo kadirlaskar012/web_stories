@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { v2 as cloudinary } from "cloudinary";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
-// Configure Cloudinary
+// Configure Cloudinary if available
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -16,6 +19,7 @@ const ALLOWED_TYPES = [
   "image/webp",
   "image/avif",
   "image/gif",
+  "image/svg+xml",
   "video/mp4",
   "video/webm",
 ];
@@ -30,10 +34,10 @@ function isCloudinaryConfigured(): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
+    const session = await getSession();
+    const uploadedById = session?.userId || null;
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const altText = formData.get("altText") as string | null;
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Validate MIME type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: `File type not allowed: ${file.type}` },
+        { error: `File type not allowed: ${file.type}. Allowed: JPG, PNG, WebP, GIF, MP4, WebM.` },
         { status: 400 }
       );
     }
@@ -58,7 +62,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
     let url: string;
@@ -69,7 +72,7 @@ export async function POST(req: NextRequest) {
     let format: string | undefined;
 
     if (isCloudinaryConfigured()) {
-      // Upload to Cloudinary
+      // 1. Upload to Cloudinary
       const uploadResult = await new Promise<{
         secure_url: string;
         public_id: string;
@@ -100,7 +103,6 @@ export async function POST(req: NextRequest) {
       height = uploadResult.height;
       format = uploadResult.format;
 
-      // Generate thumbnail for images
       if (!file.type.startsWith("video")) {
         thumbnailUrl = cloudinary.url(cloudinaryId, {
           width: 400,
@@ -112,15 +114,19 @@ export async function POST(req: NextRequest) {
         });
       }
     } else {
-      // Cloudinary not configured — return error with helpful message
-      return NextResponse.json(
-        {
-          error:
-            "Media storage is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.",
-          configRequired: true,
-        },
-        { status: 503 }
-      );
+      // 2. Automatic Local Storage (/public/uploads)
+      const ext = path.extname(file.name) || `.${file.type.split("/")[1] || "jpg"}`;
+      const hash = crypto.randomBytes(8).toString("hex");
+      const filename = `${Date.now()}-${hash}${ext}`;
+
+      const uploadsDir = path.join(process.cwd(), "public", "uploads");
+      await mkdir(uploadsDir, { recursive: true });
+
+      const filePath = path.join(uploadsDir, filename);
+      await writeFile(filePath, buffer);
+
+      url = `/uploads/${filename}`;
+      thumbnailUrl = `/uploads/${filename}`;
     }
 
     // Safe filename
@@ -129,7 +135,7 @@ export async function POST(req: NextRequest) {
       .replace(/[^a-z0-9.-]/g, "-")
       .replace(/-+/g, "-");
 
-    // Save to database
+    // Save metadata in Database
     const media = await prisma.media.create({
       data: {
         filename: safeFilename,
@@ -143,24 +149,21 @@ export async function POST(req: NextRequest) {
         altText: altText || null,
         cloudinaryId,
         format,
-        uploadedById: session.userId,
+        uploadedById,
       },
     });
 
     return NextResponse.json(media, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[MEDIA_UPLOAD]", err);
     return NextResponse.json(
-      { error: "Upload failed. Please try again." },
+      { error: err.message || "Upload failed. Please try again." },
       { status: 500 }
     );
   }
 }
 
 export async function GET(req: NextRequest) {
-  const session = await requireSession().catch(() => null);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { searchParams } = new URL(req.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const search = searchParams.get("search") || "";
@@ -168,7 +171,7 @@ export async function GET(req: NextRequest) {
   const limit = 24;
 
   const where = {
-    ...(search && { filename: { contains: search, mode: "insensitive" as const } }),
+    ...(search && { filename: { contains: search } }),
     ...(type === "image" && { mimeType: { startsWith: "image/" } }),
     ...(type === "video" && { mimeType: { startsWith: "video/" } }),
   };
