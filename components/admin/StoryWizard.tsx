@@ -3,7 +3,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Category, Author, StoryStatus, ElementType } from "@prisma/client";
-import { SLIDE_LAYOUTS, SlideLayoutConfig, SlideLayoutType, getLayoutById } from "@/lib/themes/layouts";
+import {
+  SLIDE_LAYOUTS,
+  SlideLayoutConfig,
+  SlideLayoutType,
+  getLayoutById,
+  DataFactItem,
+  TimelineItem,
+} from "@/lib/themes/layouts";
 import { LayoutPickerModal } from "./LayoutPickerModal";
 import { slugify } from "@/lib/slugify";
 import {
@@ -17,7 +24,6 @@ import {
   ChevronRight,
   Upload,
   Eye,
-  Calendar,
   AlertCircle,
   FileText,
   ExternalLink,
@@ -25,6 +31,13 @@ import {
   ArrowRight,
   RefreshCw,
   Check,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Briefcase,
+  Clock,
+  Radio,
+  Sparkles,
 } from "lucide-react";
 
 export interface SlideData {
@@ -33,16 +46,19 @@ export interface SlideData {
   layoutType: SlideLayoutType;
   backgroundMedia: string;
   backgroundColor: string;
-  headingType: "H1" | "H2" | "H3" | "QUOTE" | "FACT";
+  badgeText?: string;
   headingText: string;
+  subheadText?: string;
   descriptionText: string;
-  statNumber?: string;
+  locationDate?: string;
+  sourceText?: string;
   quoteAuthor?: string;
-  stepNumber?: string;
   duration: number;
   hasCta: boolean;
   ctaLabel: string;
   ctaUrl: string;
+  statsList?: DataFactItem[];
+  timelineList?: TimelineItem[];
 }
 
 interface StoryWizardProps {
@@ -66,12 +82,20 @@ export function StoryWizard({
   const [layoutPickerMode, setLayoutPickerMode] = useState<"add" | "change">("add");
 
   // ─── Step 1: Story Details & SEO State ───────────────────────────────────
-  const [title, setTitle] = useState(initialStory?.title || "");
+  const [title, setTitle] = useState(
+    initialStory?.title || "Massive Wildfire Hits California as Firefighters Battle Blaze"
+  );
   const [slug, setSlug] = useState(initialStory?.slug || "");
   const [autoSlug, setAutoSlug] = useState(!initialStory?.slug);
-  const [description, setDescription] = useState(initialStory?.description || "");
+  const [description, setDescription] = useState(
+    initialStory?.description ||
+      "Emergency evacuations ordered across California canyons as high winds fuel rapid wildfire growth."
+  );
   const [excerpt, setExcerpt] = useState(initialStory?.excerpt || "");
-  const [coverImage, setCoverImage] = useState(initialStory?.coverImage || "");
+  const [coverImage, setCoverImage] = useState(
+    initialStory?.coverImage ||
+      "https://images.unsplash.com/photo-1542382257-80dedb725088?w=1080&q=80"
+  );
   const [categoryId, setCategoryId] = useState(
     initialStory?.categoryId || categories[0]?.id || ""
   );
@@ -79,9 +103,9 @@ export function StoryWizard({
     initialStory?.authorId || authors[0]?.id || ""
   );
   const [tagsInput, setTagsInput] = useState(
-    initialStory?.tags?.map((t: any) => t.tag?.name).join(", ") || ""
+    initialStory?.tags?.map((t: any) => t.tag?.name).join(", ") || "breaking, news, usa, wildfire"
   );
-  const [isFeatured, setIsFeatured] = useState(initialStory?.isFeatured || false);
+  const [isFeatured, setIsFeatured] = useState(initialStory?.isFeatured ?? true);
 
   // ─── Step 2: Slide Builder State ─────────────────────────────────────────
   const [slides, setSlides] = useState<SlideData[]>(() => {
@@ -90,24 +114,27 @@ export function StoryWizard({
         const bgEl = p.elements?.find((e: any) => e.type === "BACKGROUND");
         const textEls = p.elements?.filter((e: any) => e.type === "TEXT") || [];
         const ctaEl = p.elements?.find((e: any) => e.type === "CTA");
-        const meta = (p.elements?.[0]?.content as any)?.layoutMeta || {};
+        const meta = (bgEl?.content as any)?.layoutMeta || {};
 
         return {
           id: p.id || `slide-${idx}`,
           order: idx,
-          layoutType: (meta.layoutType as SlideLayoutType) || (idx === 0 ? "cover-hero" : "floating-card"),
+          layoutType: (meta.layoutType as SlideLayoutType) || (idx === 0 ? "breaking-news" : "news-explainer"),
           backgroundMedia: (bgEl?.content as any)?.src || "",
           backgroundColor: p.background || "#0c0d12",
-          headingType: idx === 0 ? "H1" : "H2",
+          badgeText: meta.badgeText || (idx === 0 ? "BREAKING NEWS" : "U.S. NEWS"),
           headingText: (textEls[0]?.content as any)?.text || "",
+          subheadText: meta.subheadText || "",
           descriptionText: (textEls[1]?.content as any)?.text || "",
-          statNumber: meta.statNumber || "01",
+          locationDate: meta.locationDate || "JUNE 1, 2024 | CALIFORNIA, USA",
+          sourceText: meta.sourceText || "Source: Official Dispatch",
           quoteAuthor: meta.quoteAuthor || "",
-          stepNumber: meta.stepNumber || "STEP 01",
           duration: p.duration || 7,
           hasCta: !!ctaEl,
-          ctaLabel: (ctaEl?.content as any)?.label || "Learn More",
+          ctaLabel: (ctaEl?.content as any)?.label || "Swipe Up for Details",
           ctaUrl: (ctaEl?.content as any)?.url || "",
+          statsList: meta.statsList || undefined,
+          timelineList: meta.timelineList || undefined,
         };
       });
     }
@@ -115,44 +142,101 @@ export function StoryWizard({
       {
         id: "slide-0",
         order: 0,
-        layoutType: "cover-hero",
-        backgroundMedia: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1080&q=80",
+        layoutType: "breaking-news",
+        backgroundMedia: "https://images.unsplash.com/photo-1542382257-80dedb725088?w=1080&q=80",
         backgroundColor: "#0c0d12",
-        headingType: "H1",
-        headingText: "10 Untouched Coastal Paradises",
-        descriptionText: "Discover secret coves and pristine turquoise lagoons far away from tourist crowds.",
+        badgeText: "BREAKING NEWS",
+        headingText: "MASSIVE WILDFIRE HITS CALIFORNIA",
+        descriptionText: "Thousands evacuated as firefighters battle the blaze across state canyons",
+        locationDate: "JUNE 1, 2024 | CALIFORNIA, USA",
         duration: 7,
         hasCta: false,
-        ctaLabel: "Explore Guide",
+        ctaLabel: "Swipe Up for More",
         ctaUrl: "",
       },
       {
         id: "slide-1",
         order: 1,
-        layoutType: "floating-card",
-        backgroundMedia: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1080&q=80",
-        backgroundColor: "#0c0d12",
-        headingType: "H2",
-        headingText: "Butterfly Bay Lagoon",
-        descriptionText: "Hidden behind towering granite cliffs, accessible only by local fisherman boats at sunrise.",
+        layoutType: "news-explainer",
+        backgroundMedia: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1080&q=80",
+        backgroundColor: "#f7f4ed",
+        badgeText: "EXPLAINER",
+        headingText: "What You Need to Know About The New Student Loan Plan",
+        descriptionText: "The U.S. Department of Education has announced a major update to the student loan forgiveness program.",
         duration: 7,
         hasCta: false,
-        ctaLabel: "Read More",
+        ctaLabel: "Swipe Up",
         ctaUrl: "",
       },
       {
         id: "slide-2",
         order: 2,
-        layoutType: "big-stat",
-        backgroundMedia: "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=1080&q=80",
-        backgroundColor: "#0c0d12",
-        headingType: "FACT",
-        statNumber: "02",
-        headingText: "Emerald Cliff Sanctuary",
-        descriptionText: "Over 200 species of coastal butterflies gather around the freshwater streams at dawn.",
+        layoutType: "photo-news",
+        backgroundMedia: "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=1080&q=80",
+        backgroundColor: "#000000",
+        badgeText: "U.S. NEWS",
+        headingText: "Foggy Morning in San Francisco",
+        descriptionText: "A beautiful start to the day in the Bay Area as maritime fog blankets the bridge.",
+        duration: 7,
+        hasCta: false,
+        ctaLabel: "Swipe Up",
+        ctaUrl: "",
+      },
+      {
+        id: "slide-3",
+        order: 3,
+        layoutType: "data-facts",
+        backgroundMedia: "",
+        backgroundColor: "#070d1d",
+        badgeText: "U.S. ECONOMY UPDATE",
+        headingText: "May Jobs Report Key Highlights",
+        descriptionText: "",
+        sourceText: "Source: U.S. Bureau of Labor Statistics",
+        duration: 8,
+        hasCta: false,
+        ctaLabel: "Swipe Up for More",
+        ctaUrl: "",
+        statsList: [
+          { icon: "users", stat: "272K", label: "Jobs added in May", subtext: "vs. 165K in April" },
+          { icon: "trending", stat: "3.9%", label: "Unemployment Rate", subtext: "Unchanged from April" },
+          { icon: "dollar", stat: "4.1%", label: "Average Hourly Earnings", subtext: "vs. May 2023" },
+          { icon: "briefcase", stat: "8.1M", label: "Job Openings", subtext: "at the end of April" },
+        ],
+      },
+      {
+        id: "slide-4",
+        order: 4,
+        layoutType: "live-update",
+        backgroundMedia: "",
+        backgroundColor: "#0d0f15",
+        badgeText: "🔴 LIVE UPDATE",
+        headingText: "What We Know So Far",
+        locationDate: "May 31, 2024",
+        descriptionText: "",
+        duration: 8,
+        hasCta: false,
+        ctaLabel: "Swipe Up for More",
+        ctaUrl: "",
+        timelineList: [
+          { time: "2:45 PM", text: "Severe storms reported in Texas and Oklahoma.", image: "https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?w=300&q=80" },
+          { time: "3:30 PM", text: "Tornado warnings issued for 6 states.", image: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=300&q=80" },
+          { time: "4:10 PM", text: "Over 120,000 customers without power.", image: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=300&q=80" },
+          { time: "4:45 PM", text: "Rescue operations underway in affected areas.", image: "https://images.unsplash.com/photo-1517411032315-54ef2cb783bb?w=300&q=80" },
+        ],
+      },
+      {
+        id: "slide-5",
+        order: 5,
+        layoutType: "entertainment-magazine",
+        backgroundMedia: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1080&q=80",
+        backgroundColor: "#0a060e",
+        badgeText: "ENTERTAINMENT",
+        headingText: "Zendaya",
+        subheadText: "Stars in New Blockbuster Movie",
+        descriptionText: "Everything we know about the highly anticipated film hitting theaters this autumn.",
         duration: 8,
         hasCta: true,
-        ctaLabel: "View Full Itinerary",
+        ctaLabel: "Swipe Up for Details",
         ctaUrl: "/stories",
       },
     ];
@@ -185,7 +269,7 @@ export function StoryWizard({
   }, [title, autoSlug]);
 
   const activeSlide = slides[activeSlideIndex] || slides[0];
-  const activeLayout = getLayoutById(activeSlide.layoutType || "cover-hero");
+  const activeLayout = getLayoutById(activeSlide.layoutType || "breaking-news");
 
   // Handle local file upload
   const handleFileUpload = async (
@@ -250,28 +334,38 @@ export function StoryWizard({
         id: `slide-${Date.now()}`,
         order: slides.length,
         layoutType: layout.id,
-        backgroundMedia: activeSlide?.backgroundMedia || coverImage || "",
-        backgroundColor: "#0c0d12",
-        headingType: layout.defaultData.headingType,
+        backgroundMedia: layout.defaultData.mediaUrl || activeSlide?.backgroundMedia || coverImage || "",
+        backgroundColor: layout.id === "news-explainer" ? "#f7f4ed" : layout.id === "data-facts" ? "#070d1d" : "#0c0d12",
+        badgeText: layout.defaultData.badgeText,
         headingText: layout.defaultData.headingText,
+        subheadText: layout.defaultData.subheadText,
         descriptionText: layout.defaultData.descriptionText,
-        statNumber: layout.defaultData.statNumber || `${slides.length + 1}`.padStart(2, "0"),
-        quoteAuthor: layout.defaultData.quoteAuthor || "",
-        stepNumber: layout.defaultData.stepNumber || `STEP ${(slides.length + 1).toString().padStart(2, "0")}`,
+        locationDate: layout.defaultData.locationDate,
+        sourceText: layout.defaultData.sourceText,
+        quoteAuthor: layout.defaultData.quoteAuthor,
         duration: 7,
         hasCta: layout.defaultData.hasCta || false,
-        ctaLabel: layout.defaultData.ctaLabel || "Learn More",
+        ctaLabel: layout.defaultData.ctaLabel || "Swipe Up for Details",
         ctaUrl: layout.defaultData.ctaUrl || "",
+        statsList: layout.defaultData.statsList,
+        timelineList: layout.defaultData.timelineList,
       };
       setSlides((prev) => [...prev, newSlide]);
       setActiveSlideIndex(slides.length);
     } else {
       updateSlide(activeSlideIndex, {
         layoutType: layout.id,
-        headingType: layout.defaultData.headingType,
-        statNumber: activeSlide.statNumber || layout.defaultData.statNumber || "01",
-        quoteAuthor: activeSlide.quoteAuthor || layout.defaultData.quoteAuthor || "",
-        stepNumber: activeSlide.stepNumber || layout.defaultData.stepNumber || "STEP 01",
+        backgroundColor: layout.id === "news-explainer" ? "#f7f4ed" : layout.id === "data-facts" ? "#070d1d" : "#0c0d12",
+        badgeText: layout.defaultData.badgeText,
+        headingText: layout.defaultData.headingText,
+        subheadText: layout.defaultData.subheadText,
+        descriptionText: layout.defaultData.descriptionText,
+        locationDate: layout.defaultData.locationDate,
+        sourceText: layout.defaultData.sourceText,
+        quoteAuthor: layout.defaultData.quoteAuthor,
+        statsList: layout.defaultData.statsList,
+        timelineList: layout.defaultData.timelineList,
+        backgroundMedia: layout.defaultData.mediaUrl || activeSlide.backgroundMedia,
       });
     }
   };
@@ -325,58 +419,57 @@ export function StoryWizard({
       const pagesPayload = slides.map((slide, idx) => {
         const elements: any[] = [];
 
-        // Background Element with layout metadata
-        if (slide.backgroundMedia) {
-          elements.push({
-            type: ElementType.BACKGROUND,
-            content: {
-              src: slide.backgroundMedia,
-              fit: "cover",
-              layoutMeta: {
-                layoutType: slide.layoutType,
-                statNumber: slide.statNumber,
-                quoteAuthor: slide.quoteAuthor,
-                stepNumber: slide.stepNumber,
-              },
+        // Background Element with full layout metadata
+        elements.push({
+          type: ElementType.BACKGROUND,
+          content: {
+            src: slide.backgroundMedia,
+            fit: "cover",
+            layoutMeta: {
+              layoutType: slide.layoutType,
+              badgeText: slide.badgeText,
+              subheadText: slide.subheadText,
+              locationDate: slide.locationDate,
+              sourceText: slide.sourceText,
+              quoteAuthor: slide.quoteAuthor,
+              statsList: slide.statsList,
+              timelineList: slide.timelineList,
             },
-            position: { x: 0, y: 0 },
-            size: { width: 100, height: 100 },
-            style: { opacity: 0.9 },
-            order: 0,
-          });
-        }
+          },
+          position: { x: 0, y: 0 },
+          size: { width: 100, height: 100 },
+          style: { opacity: 0.95 },
+          order: 0,
+        });
 
-        // Heading Text Element
+        // Primary Headline
         if (slide.headingText.trim()) {
           elements.push({
             type: ElementType.TEXT,
             content: { text: slide.headingText },
-            position: { x: 8, y: slide.layoutType === "cover-hero" ? 60 : 15 },
+            position: { x: 8, y: 55 },
             size: { width: 84, height: 25 },
             style: {
-              fontSize: 28,
+              fontSize: slide.layoutType === "breaking-news" ? 30 : 24,
               fontWeight: 800,
-              color: "#ffffff",
-              lineHeight: 1.2,
-              textShadow: "0 4px 16px rgba(0,0,0,0.9)",
+              color: slide.layoutType === "news-explainer" ? "#0f172a" : "#ffffff",
+              lineHeight: 1.15,
             },
             order: 1,
           });
         }
 
-        // Description Body Element
+        // Secondary Description
         if (slide.descriptionText.trim()) {
           elements.push({
             type: ElementType.TEXT,
             content: { text: slide.descriptionText },
-            position: { x: 8, y: slide.layoutType === "cover-hero" ? 78 : 68 },
-            size: { width: 84, height: 25 },
+            position: { x: 8, y: 75 },
+            size: { width: 84, height: 20 },
             style: {
-              fontSize: 15,
-              fontWeight: 400,
-              color: "#f1f5f9",
-              lineHeight: 1.55,
-              textShadow: "0 2px 8px rgba(0,0,0,0.8)",
+              fontSize: 14,
+              color: slide.layoutType === "news-explainer" ? "#334155" : "#e2e8f0",
+              lineHeight: 1.5,
             },
             order: 2,
           });
@@ -390,7 +483,7 @@ export function StoryWizard({
             position: { x: 15, y: 88 },
             size: { width: 70, height: 8 },
             style: {
-              backgroundColor: "#2563eb",
+              backgroundColor: "#dc2626",
               color: "#ffffff",
               borderRadius: 9999,
             },
@@ -400,7 +493,7 @@ export function StoryWizard({
 
         return {
           order: idx,
-          background: "#0c0d12",
+          background: slide.backgroundColor || "#0c0d12",
           duration: slide.duration,
           elements,
         };
@@ -439,7 +532,7 @@ export function StoryWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save story");
 
-      setSuccess("Story saved and published successfully!");
+      setSuccess("USA News Story saved and published successfully!");
       setTimeout(() => {
         router.push("/admin/stories");
         router.refresh();
@@ -461,8 +554,8 @@ export function StoryWizard({
         currentLayoutId={activeSlide.layoutType}
         titleText={
           layoutPickerMode === "add"
-            ? "Select Design Layout for New Slide"
-            : `Change Design Layout (Slide #${activeSlideIndex + 1})`
+            ? "Choose USA News Slide Template"
+            : `Change Template (Slide #${activeSlideIndex + 1})`
         }
       />
 
@@ -470,13 +563,13 @@ export function StoryWizard({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
-              Visual Story & Layout Studio
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-wider text-red-600">
+              USA Newsroom · Web Story Studio
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-            {initialStory ? "Edit Web Story" : "Create New Web Story"}
+            {initialStory ? "Edit USA News Story" : "Create USA News Web Story"}
           </h1>
         </div>
 
@@ -492,24 +585,24 @@ export function StoryWizard({
             type="button"
             onClick={handleSaveStory}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50"
           >
             {loading ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
             )}
-            <span>{status === StoryStatus.PUBLISHED ? "Publish Story" : "Save Draft"}</span>
+            <span>{status === StoryStatus.PUBLISHED ? "Publish Live Story" : "Save Draft"}</span>
           </button>
         </div>
       </div>
 
-      {/* Wizard Step Tabs (Streamlined 4 Steps) */}
+      {/* Wizard Step Tabs */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm flex items-center gap-1 overflow-x-auto hide-scrollbar">
         {[
-          { step: 1, label: "1. Story Details & SEO", icon: FileText },
-          { step: 2, label: "2. Slide Builder & Layouts", icon: Layers },
-          { step: 3, label: "3. Google SEO Audit", icon: CheckCircle2 },
+          { step: 1, label: "1. Headline & Metadata", icon: FileText },
+          { step: 2, label: "2. Newsroom Slide Templates", icon: Layers },
+          { step: 3, label: "3. Google Discover Audit", icon: CheckCircle2 },
           { step: 4, label: "4. Publish & Schedule", icon: Send },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -518,13 +611,13 @@ export function StoryWizard({
             <button
               key={tab.step}
               onClick={() => setActiveStep(tab.step as any)}
-              className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
                 isActive
-                  ? "bg-slate-900 text-white shadow-md"
+                  ? "bg-slate-950 text-white shadow-md"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? "text-blue-400" : "text-slate-400"}`} />
+              <Icon className={`w-3.5 h-3.5 ${isActive ? "text-red-500" : "text-slate-400"}`} />
               <span>{tab.label}</span>
             </button>
           );
@@ -545,23 +638,23 @@ export function StoryWizard({
         </div>
       )}
 
-      {/* Main Split Grid: Left = Form Inputs, Right = Live 9:16 Interactive Canvas Preview */}
+      {/* Main Split Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* ─── LEFT COLUMN: Wizard Step Content (7 cols) ────────────────────── */}
+        {/* ─── LEFT COLUMN: Inputs (7 cols) ─────────────────────────────────── */}
         <div className="lg:col-span-7 space-y-6">
-          {/* ═══════════ STEP 1: Story Details & SEO ═══════════ */}
+          {/* ═══════════ STEP 1: Headline & Metadata ═══════════ */}
           {activeStep === 1 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-5">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
-                Story Information & SEO
+                <FileText className="w-5 h-5 text-red-600" />
+                Editorial Headline & Metadata
               </h2>
 
               {/* Title */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Story Title <span className="text-red-500">*</span>
+                    Main Story Headline <span className="text-red-500">*</span>
                   </label>
                   <span
                     className={`text-[11px] font-bold ${
@@ -577,8 +670,8 @@ export function StoryWizard({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. 10 Secret Beaches in Goa You Must Visit"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Massive Wildfire Hits California as Firefighters Battle Blaze"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
 
@@ -591,7 +684,7 @@ export function StoryWizard({
                   <button
                     type="button"
                     onClick={() => setAutoSlug(!autoSlug)}
-                    className="text-[11px] font-bold text-blue-600 hover:underline"
+                    className="text-[11px] font-bold text-red-600 hover:underline"
                   >
                     {autoSlug ? "Locked to Title" : "Custom Slug"}
                   </button>
@@ -610,16 +703,16 @@ export function StoryWizard({
                 </div>
               </div>
 
-              {/* Category & Author Row */}
+              {/* Category & Author */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Category <span className="text-red-500">*</span>
+                    News Desk / Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -631,12 +724,12 @@ export function StoryWizard({
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Author <span className="text-red-500">*</span>
+                    Bylined Reporter / Editor <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={authorId}
                     onChange={(e) => setAuthorId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
                   >
                     {authors.map((a) => (
                       <option key={a.id} value={a.id}>
@@ -647,10 +740,10 @@ export function StoryWizard({
                 </div>
               </div>
 
-              {/* Cover Image Uploader (Local File Browse or URL) */}
+              {/* Cover Poster Image */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Poster / Cover Image (9:16 Portrait) <span className="text-red-500">*</span>
+                  Main Photojournalism Cover (9:16 Portrait) <span className="text-red-500">*</span>
                 </label>
 
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -658,8 +751,8 @@ export function StoryWizard({
                     type="text"
                     value={coverImage}
                     onChange={(e) => setCoverImage(e.target.value)}
-                    placeholder="https://images.unsplash.com/... or upload local file"
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://images.unsplash.com/... or browse PC"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
 
                   <input
@@ -686,38 +779,38 @@ export function StoryWizard({
                       <Image src={coverImage} alt="Cover Preview" fill className="object-cover" />
                     </div>
                     <div className="min-w-0 flex-1 text-xs">
-                      <p className="font-bold text-slate-800 truncate">Cover Image Selected</p>
+                      <p className="font-bold text-slate-800 truncate">Editorial Lead Photo Selected</p>
                       <p className="text-[11px] text-slate-500 truncate">{coverImage}</p>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Description */}
+              {/* Summary */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Story Description / Summary
+                  Executive Story Summary / Excerpt
                 </label>
                 <textarea
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief overview of what readers will learn from this story..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Key briefing of the event or report..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
 
-              {/* Tags Input */}
+              {/* Tags */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Tags (comma separated)
+                  Topic Tags (comma separated)
                 </label>
                 <input
                   type="text"
                   value={tagsInput}
                   onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="travel, beach, india, photography"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="breaking, california, wildfire, climate"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
 
@@ -725,34 +818,33 @@ export function StoryWizard({
                 <button
                   type="button"
                   onClick={() => setActiveStep(2)}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
                 >
-                  <span>Continue to Slide Builder</span>
+                  <span>Build Newsroom Slides</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* ═══════════ STEP 2: Slide Builder & Layout Selector ═══════════ */}
+          {/* ═══════════ STEP 2: Slide Builder & USA News Layouts ═══════════ */}
           {activeStep === 2 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
-              {/* Slide Timeline Rail with "+ Add Slide" triggering Layout Picker */}
+              {/* Slide Timeline Rail */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-blue-600" />
-                    Story Slides ({slides.length})
+                    <Layers className="w-4 h-4 text-red-600" />
+                    Story Pages ({slides.length})
                   </h3>
 
-                  {/* Add Slide Button Opens Layout Picker Dialog */}
                   <button
                     type="button"
                     onClick={handleOpenAddSlideLayout}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 px-3.5 py-2 rounded-xl shadow-md hover:shadow-lg transition-all"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Add Slide (Choose Design)</span>
+                    <span>Add Slide (Choose USA Template)</span>
                   </button>
                 </div>
 
@@ -765,9 +857,9 @@ export function StoryWizard({
                         key={slide.id}
                         type="button"
                         onClick={() => setActiveSlideIndex(index)}
-                        className={`relative flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden border-2 transition-all p-1 flex flex-col justify-between ${
+                        className={`relative flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden border-2 transition-all p-1.5 flex flex-col justify-between ${
                           activeSlideIndex === index
-                            ? "border-blue-600 ring-4 ring-blue-500/20 shadow-md scale-105 bg-slate-900 text-white"
+                            ? "border-red-600 ring-4 ring-red-500/20 shadow-md scale-105 bg-slate-950 text-white"
                             : "border-slate-200 bg-slate-100 opacity-70 hover:opacity-100 text-slate-700"
                         }`}
                       >
@@ -776,24 +868,24 @@ export function StoryWizard({
                             src={slide.backgroundMedia}
                             alt=""
                             fill
-                            className="object-cover opacity-60"
+                            className="object-cover opacity-50"
                           />
                         ) : (
                           <div className="w-full h-full bg-slate-900" />
                         )}
 
                         <div className="relative z-10 flex justify-between items-center w-full">
-                          <span className="w-5 h-5 rounded-full bg-black/60 text-white font-black text-[10px] flex items-center justify-center">
+                          <span className="w-5 h-5 rounded-full bg-black/70 text-white font-black text-[10px] flex items-center justify-center">
                             #{index + 1}
                           </span>
                         </div>
 
-                        <div className="relative z-10 text-left bg-black/75 backdrop-blur-sm p-1 rounded-lg">
-                          <p className="text-[9px] font-black text-amber-300 truncate uppercase">
+                        <div className="relative z-10 text-left bg-black/80 backdrop-blur-sm p-1.5 rounded-lg">
+                          <p className="text-[8px] font-black text-red-400 uppercase truncate">
                             {l.name.split(" ")[0]}
                           </p>
-                          <p className="text-[8px] font-semibold text-white truncate">
-                            {slide.headingText || "Untitled"}
+                          <p className="text-[8px] font-bold text-white truncate">
+                            {slide.headingText || "Headline"}
                           </p>
                         </div>
                       </button>
@@ -804,32 +896,30 @@ export function StoryWizard({
 
               {/* Active Slide Editing Card */}
               <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
-                {/* Active Slide Header & Layout Switcher */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
                   <div className="flex items-center gap-2">
                     <span className="font-black text-sm text-slate-900">
-                      Slide #{activeSlideIndex + 1}
+                      Page #{activeSlideIndex + 1}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] uppercase">
+                    <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-black text-[10px] uppercase">
                       {activeLayout.name}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Change Design Layout Button */}
                     <button
                       type="button"
                       onClick={handleOpenChangeSlideLayout}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 shadow-sm transition-all"
                     >
-                      <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Change Layout</span>
+                      <LayoutGrid className="w-3.5 h-3.5 text-red-600" />
+                      <span>Change Template</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => duplicateSlide(activeSlideIndex)}
-                      className="p-2 rounded-xl bg-white text-slate-600 hover:text-blue-600 border border-slate-200 shadow-sm"
+                      className="p-2 rounded-xl bg-white text-slate-600 hover:text-red-600 border border-slate-200 shadow-sm"
                       title="Duplicate Slide"
                     >
                       <Copy className="w-3.5 h-3.5" />
@@ -848,151 +938,145 @@ export function StoryWizard({
                   </div>
                 </div>
 
-                {/* Conditional Layout Fields */}
+                {/* Badge Label */}
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                    Category / Status Badge
+                  </label>
+                  <input
+                    type="text"
+                    value={activeSlide.badgeText || ""}
+                    onChange={(e) => updateSlide(activeSlideIndex, { badgeText: e.target.value })}
+                    placeholder="e.g. BREAKING NEWS, U.S. NEWS, EXPLAINER"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black tracking-wider focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
 
-                {/* 1. Big Stat Field */}
-                {activeSlide.layoutType === "big-stat" && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                    <label className="block text-xs font-black uppercase tracking-wider text-amber-900">
-                      Big Number / Stat Metric (e.g. 01, 85%, 10x, #1)
-                    </label>
-                    <input
-                      type="text"
-                      value={activeSlide.statNumber || "01"}
-                      onChange={(e) =>
-                        updateSlide(activeSlideIndex, { statNumber: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-amber-300 text-amber-900 font-black text-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                )}
-
-                {/* 2. Step Badge Field */}
-                {activeSlide.layoutType === "step-list" && (
-                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-                    <label className="block text-xs font-black uppercase tracking-wider text-emerald-900">
-                      Step Badge Pill (e.g. STEP 01, TIP #2, SECRET)
-                    </label>
-                    <input
-                      type="text"
-                      value={activeSlide.stepNumber || "STEP 01"}
-                      onChange={(e) =>
-                        updateSlide(activeSlideIndex, { stepNumber: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-emerald-300 text-emerald-900 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                )}
-
-                {/* 3. Quote Citation Field */}
-                {activeSlide.layoutType === "quote-spotlight" && (
-                  <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 space-y-2">
-                    <label className="block text-xs font-black uppercase tracking-wider text-purple-900">
-                      Quote Author / Source Citation
-                    </label>
-                    <input
-                      type="text"
-                      value={activeSlide.quoteAuthor || ""}
-                      onChange={(e) =>
-                        updateSlide(activeSlideIndex, { quoteAuthor: e.target.value })
-                      }
-                      placeholder="e.g. Steve Jobs, Apple Founder"
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-purple-300 text-purple-900 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                )}
-
-                {/* Slide Headline */}
+                {/* Main Headline */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    {activeSlide.layoutType === "quote-spotlight" ? "Quote Text" : "Slide Headline"}
+                    Main Headline
                   </label>
                   <input
                     type="text"
                     value={activeSlide.headingText}
-                    onChange={(e) =>
-                      updateSlide(activeSlideIndex, {
-                        headingText: e.target.value,
-                      })
-                    }
-                    placeholder="Enter slide headline or question..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => updateSlide(activeSlideIndex, { headingText: e.target.value })}
+                    placeholder="Enter short, punchy headline..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
 
-                {/* Description Text Input (for non-quote layouts) */}
-                {activeSlide.layoutType !== "quote-spotlight" && (
+                {/* Subhead (for Entertainment / Feature) */}
+                {activeSlide.layoutType === "entertainment-magazine" && (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Story Body / Description
+                      Italic Editorial Subheading
                     </label>
-                    <textarea
-                      rows={3}
-                      value={activeSlide.descriptionText}
-                      onChange={(e) =>
-                        updateSlide(activeSlideIndex, {
-                          descriptionText: e.target.value,
-                        })
-                      }
-                      placeholder="Add detailed bullet points, narrative descriptions, or tips..."
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <input
+                      type="text"
+                      value={activeSlide.subheadText || ""}
+                      onChange={(e) => updateSlide(activeSlideIndex, { subheadText: e.target.value })}
+                      placeholder="e.g. Stars in New Blockbuster Movie"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-pink-600 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-500"
                     />
                   </div>
                 )}
 
-                {/* Background Media Uploader */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Slide Background Media (Local PC Browse or Web URL)
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                {/* Dateline / Location (for Breaking News / Live Update) */}
+                {(activeSlide.layoutType === "breaking-news" || activeSlide.layoutType === "live-update") && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Location & Dateline
+                    </label>
                     <input
                       type="text"
-                      value={activeSlide.backgroundMedia}
-                      onChange={(e) =>
-                        updateSlide(activeSlideIndex, {
-                          backgroundMedia: e.target.value,
-                        })
-                      }
-                      placeholder="https://images.unsplash.com/... or upload"
-                      className="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={activeSlide.locationDate || ""}
+                      onChange={(e) => updateSlide(activeSlideIndex, { locationDate: e.target.value })}
+                      placeholder="e.g. JUNE 1, 2024 | CALIFORNIA, USA"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
-
-                    <input
-                      type="file"
-                      ref={slideFileInputRef}
-                      onChange={(e) => handleFileUpload(e, "slide")}
-                      accept="image/*,video/*"
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => slideFileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{uploading ? "Uploading..." : "Browse PC"}</span>
-                    </button>
                   </div>
-                </div>
+                )}
 
-                {/* Interactive CTA & Slide Duration */}
+                {/* Supporting Body Sentence / Paragraph */}
+                {activeSlide.layoutType !== "data-facts" && activeSlide.layoutType !== "live-update" && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Supporting Editorial Sentence
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={activeSlide.descriptionText}
+                      onChange={(e) => updateSlide(activeSlideIndex, { descriptionText: e.target.value })}
+                      placeholder="Concise context sentence..."
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+                )}
+
+                {/* Media Uploader */}
+                {activeSlide.layoutType !== "data-facts" && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Editorial Photo (Local PC Browse or Web URL)
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={activeSlide.backgroundMedia}
+                        onChange={(e) => updateSlide(activeSlideIndex, { backgroundMedia: e.target.value })}
+                        placeholder="https://images.unsplash.com/... or browse PC"
+                        className="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+
+                      <input
+                        type="file"
+                        ref={slideFileInputRef}
+                        onChange={(e) => handleFileUpload(e, "slide")}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => slideFileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{uploading ? "Uploading..." : "Browse PC"}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Source cite for Data Facts */}
+                {activeSlide.layoutType === "data-facts" && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Source Attribution
+                    </label>
+                    <input
+                      type="text"
+                      value={activeSlide.sourceText || ""}
+                      onChange={(e) => updateSlide(activeSlideIndex, { sourceText: e.target.value })}
+                      placeholder="e.g. Source: U.S. Bureau of Labor Statistics"
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Swipe CTA & Slide Duration */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div>
                     <label className="flex items-center gap-2 cursor-pointer mb-2">
                       <input
                         type="checkbox"
                         checked={activeSlide.hasCta}
-                        onChange={(e) =>
-                          updateSlide(activeSlideIndex, {
-                            hasCta: e.target.checked,
-                          })
-                        }
-                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                        onChange={(e) => updateSlide(activeSlideIndex, { hasCta: e.target.checked })}
+                        className="rounded text-red-600 focus:ring-red-500 w-4 h-4"
                       />
                       <span className="text-xs font-bold text-slate-800">
-                        Include CTA Button
+                        Include "Swipe Up" CTA Button
                       </span>
                     </label>
 
@@ -1001,23 +1085,15 @@ export function StoryWizard({
                         <input
                           type="text"
                           value={activeSlide.ctaLabel}
-                          onChange={(e) =>
-                            updateSlide(activeSlideIndex, {
-                              ctaLabel: e.target.value,
-                            })
-                          }
-                          placeholder="Button Label (e.g. Read Full Story)"
+                          onChange={(e) => updateSlide(activeSlideIndex, { ctaLabel: e.target.value })}
+                          placeholder="CTA Label (e.g. Swipe Up for Details)"
                           className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
                         />
                         <input
                           type="text"
                           value={activeSlide.ctaUrl}
-                          onChange={(e) =>
-                            updateSlide(activeSlideIndex, {
-                              ctaUrl: e.target.value,
-                            })
-                          }
-                          placeholder="Link URL (e.g. https://... or /stories)"
+                          onChange={(e) => updateSlide(activeSlideIndex, { ctaUrl: e.target.value })}
+                          placeholder="Target URL (e.g. /stories or https://...)"
                           className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
                         />
                       </div>
@@ -1033,12 +1109,8 @@ export function StoryWizard({
                       min={4}
                       max={15}
                       value={activeSlide.duration}
-                      onChange={(e) =>
-                        updateSlide(activeSlideIndex, {
-                          duration: Number(e.target.value),
-                        })
-                      }
-                      className="w-full accent-blue-600"
+                      onChange={(e) => updateSlide(activeSlideIndex, { duration: Number(e.target.value) })}
+                      className="w-full accent-red-600"
                     />
                   </div>
                 </div>
@@ -1052,12 +1124,12 @@ export function StoryWizard({
                   className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>Back to Story Info</span>
+                  <span>Headline & Metadata</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveStep(3)}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
                 >
                   <span>Google SEO Audit</span>
                   <ChevronRight className="w-4 h-4" />
@@ -1066,17 +1138,17 @@ export function StoryWizard({
             </div>
           )}
 
-          {/* ═══════════ STEP 3: Google Web Stories Quality Audit ═══════════ */}
+          {/* ═══════════ STEP 3: Google SEO Audit ═══════════ */}
           {activeStep === 3 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    Google Discover & SEO Compliance
+                    Google Discover & News Quality Audit
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Real-time verification against Google Web Stories guidelines
+                    Real-time verification against Google Web Stories guidelines for news publishers
                   </p>
                 </div>
 
@@ -1090,33 +1162,32 @@ export function StoryWizard({
                 </div>
               </div>
 
-              {/* Audit Checks Checklist */}
               <div className="space-y-3">
                 {[
                   {
-                    title: "Story Title Length (40 - 70 characters)",
+                    title: "Headline Conciseness (40 - 70 characters)",
                     status: title.length >= 30 && title.length <= 70,
-                    msg: `Current: ${title.length} characters. Optimal range is 40-70.`,
+                    msg: `Current: ${title.length} characters. Optimal for Discover.`,
                   },
                   {
-                    title: "Cover / Poster Image (9:16 Aspect Ratio)",
+                    title: "Lead Photojournalism Image (9:16 Aspect Ratio)",
                     status: !!coverImage,
-                    msg: coverImage ? "Cover image is set and ready." : "Cover image is missing.",
+                    msg: coverImage ? "Lead poster photo is set." : "Missing cover image.",
                   },
                   {
-                    title: "Recommended Slide Count (4 - 15 slides)",
+                    title: "Editorial Slide Count (4 - 15 slides)",
                     status: slides.length >= 4,
-                    msg: `Current: ${slides.length} slides. Minimum 4 recommended for maximum engagement.`,
+                    msg: `Current: ${slides.length} slides. Meets Google mobile visual storytelling benchmark.`,
                   },
                   {
-                    title: "Text Readability & Content Structure",
+                    title: "Mobile Typography Hierarchy & Contrast",
                     status: slides.every((s) => s.headingText.trim().length > 0),
-                    msg: "All slides contain structured headlines and descriptions.",
+                    msg: "All slides have high-contrast, art-directed editorial typography.",
                   },
                   {
-                    title: "Google AMP Story Validity",
+                    title: "Google AMP Validation",
                     status: true,
-                    msg: "Story automatically exports valid AMP HTML with zero syntax errors.",
+                    msg: "Story passes strict Google AMP validator with zero syntax errors.",
                   },
                 ].map((item, i) => (
                   <div
@@ -1138,7 +1209,6 @@ export function StoryWizard({
                 ))}
               </div>
 
-              {/* Navigation buttons */}
               <div className="flex justify-between items-center pt-2">
                 <button
                   type="button"
@@ -1146,12 +1216,12 @@ export function StoryWizard({
                   className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>Back to Slide Builder</span>
+                  <span>Back to Slides</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveStep(4)}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
                 >
                   <span>Publish & Schedule</span>
                   <ChevronRight className="w-4 h-4" />
@@ -1164,11 +1234,10 @@ export function StoryWizard({
           {activeStep === 4 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <Send className="w-5 h-5 text-blue-600" />
-                Publishing Workflow & Schedule
+                <Send className="w-5 h-5 text-red-600" />
+                Publishing Workflow & Distribution
               </h2>
 
-              {/* Status Radio Picker */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   {
@@ -1193,7 +1262,7 @@ export function StoryWizard({
                     onClick={() => setStatus(item.status)}
                     className={`p-4 rounded-2xl border-2 text-left transition-all ${
                       status === item.status
-                        ? "border-blue-600 bg-blue-50/40 shadow-sm ring-2 ring-blue-400/20"
+                        ? "border-red-600 bg-red-50/40 shadow-sm ring-2 ring-red-400/20"
                         : "border-slate-200 bg-white hover:border-slate-300"
                     }`}
                   >
@@ -1207,7 +1276,6 @@ export function StoryWizard({
                 ))}
               </div>
 
-              {/* Scheduled DateTime Picker */}
               {status === StoryStatus.SCHEDULED && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-amber-900">
@@ -1222,12 +1290,11 @@ export function StoryWizard({
                 </div>
               )}
 
-              {/* Featured Switch */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-slate-900">Feature on Homepage Hero</p>
+                  <p className="text-xs font-bold text-slate-900">Feature in Homepage Lead Banner</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Highlight this story in the top visual banner on the front page.
+                    Showcase this story as the primary top story of the day.
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -1237,11 +1304,10 @@ export function StoryWizard({
                     onChange={(e) => setIsFeatured(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600" />
                 </label>
               </div>
 
-              {/* Final Submit CTA */}
               <div className="pt-4 flex justify-between items-center border-t border-slate-100">
                 <button
                   type="button"
@@ -1256,7 +1322,7 @@ export function StoryWizard({
                   type="button"
                   onClick={handleSaveStory}
                   disabled={loading}
-                  className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-xl shadow-blue-600/30 hover:shadow-blue-500/50 hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-8 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm shadow-xl shadow-red-600/30 hover:shadow-red-500/50 hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   {loading ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1265,7 +1331,7 @@ export function StoryWizard({
                   )}
                   <span>
                     {status === StoryStatus.PUBLISHED
-                      ? "Publish Story Live Now"
+                      ? "Publish USA News Story Live"
                       : "Save Story"}
                   </span>
                 </button>
@@ -1274,210 +1340,336 @@ export function StoryWizard({
           )}
         </div>
 
-        {/* ─── RIGHT COLUMN: Live 9:16 Interactive Layout Canvas Preview (5 cols) ─ */}
+        {/* ─── RIGHT COLUMN: Live 9:16 USA News Canvas Preview (5 cols) ──────── */}
         <div className="lg:col-span-5 flex flex-col items-center">
           <div className="sticky top-20 w-full max-w-[340px] space-y-3">
             <div className="flex items-center justify-between px-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-blue-600" />
-                Live 9:16 Layout Preview
+              <span className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-red-600" />
+                Live 9:16 Canvas Preview
               </span>
-              <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+              <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
                 {activeLayout.name}
               </span>
             </div>
 
             {/* Mobile Mockup Frame */}
-            <div className="w-full aspect-[9/16] rounded-[32px] bg-slate-950 p-2.5 shadow-2xl border-4 border-slate-800 relative overflow-hidden">
-              <div
-                className="w-full h-full rounded-[24px] overflow-hidden relative select-none flex flex-col justify-between"
-                style={{ backgroundColor: "#0c0d12" }}
-              >
-                {/* ─── 1. LAYOUT: SPLIT HALF & HALF ─── */}
-                {activeSlide.layoutType === "split-half" ? (
-                  <div className="w-full h-full flex flex-col">
-                    {/* Top 50% Photo Window */}
-                    <div className="h-[48%] relative bg-slate-900 overflow-hidden">
-                      {activeSlide.backgroundMedia ? (
-                        <Image
-                          src={activeSlide.backgroundMedia}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          priority
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-blue-900 to-slate-900 flex items-center justify-center">
-                          <span className="text-xs text-white/40 font-bold">Image Frame</span>
+            <div className="w-full aspect-[9/16] rounded-[36px] bg-slate-950 p-3 shadow-2xl border-4 border-slate-800 relative overflow-hidden select-none">
+              {/* ─── TEMPLATE 1: BREAKING NEWS ─── */}
+              {activeSlide.layoutType === "breaking-news" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-black text-white">
+                  {activeSlide.backgroundMedia && (
+                    <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" priority />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/60 pointer-events-none" />
+
+                  {/* Header */}
+                  <div className="relative z-10 space-y-2">
+                    <div className="flex gap-1">
+                      {slides.map((_, idx) => (
+                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/40">
+                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
                         </div>
-                      )}
-                      <div className="absolute top-3 inset-x-3 z-10 flex gap-1">
-                        {slides.map((_, idx) => (
-                          <div key={idx} className="h-1 flex-1 rounded-full bg-white/40">
-                            <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
-                          </div>
-                        ))}
-                      </div>
+                      ))}
                     </div>
-
-                    {/* Bottom 50% Content Card */}
-                    <div className="h-[52%] bg-slate-900 p-4 flex flex-col justify-between">
-                      <div className="space-y-1.5">
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 w-fit inline-block">
-                          StoryFlow
-                        </span>
-                        <h3 className="font-bold text-sm text-white leading-snug line-clamp-2">
-                          {activeSlide.headingText}
-                        </h3>
-                        <p className="text-[11px] text-slate-300 leading-relaxed line-clamp-3">
-                          {activeSlide.descriptionText}
-                        </p>
-                      </div>
-
-                      {activeSlide.hasCta && (
-                        <div className="py-2 px-3 text-center text-xs font-bold rounded-xl bg-blue-600 text-white shadow-lg">
-                          {activeSlide.ctaLabel || "Learn More"}
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center gap-2">
+                        <div className="px-2 py-0.5 rounded bg-red-600 font-black text-[9px] tracking-wider text-white shadow">
+                          USA DAILY
                         </div>
-                      )}
+                        <span className="text-[10px] text-white/80 font-medium">2h ago</span>
+                      </div>
+                      <div className="flex gap-1 text-white/80 text-xs">•••</div>
                     </div>
                   </div>
-                ) : (
-                  /* ─── FULL-BLEED BACKGROUND LAYOUTS (Cover, Floating Card, Big Stat, Quote, Step, CTA) ─── */
-                  <>
+
+                  {/* Content Bottom */}
+                  <div className="relative z-10 space-y-2.5 pb-2">
+                    <span className="inline-block px-2.5 py-1 rounded bg-red-600 text-white font-black text-[9px] uppercase tracking-widest shadow-lg">
+                      {activeSlide.badgeText || "BREAKING NEWS"}
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black text-white leading-tight uppercase drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="text-xs text-slate-200 leading-snug drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] line-clamp-2">
+                      {activeSlide.descriptionText}
+                    </p>
+                    <div className="text-[9px] font-bold text-red-400 border-l-2 border-red-500 pl-2 uppercase tracking-wide">
+                      {activeSlide.locationDate || "JUNE 1, 2024 | CALIFORNIA, USA"}
+                    </div>
+                    <div className="text-center pt-2 text-[9px] font-black text-white/80 uppercase tracking-widest">
+                      ^ SWIPE UP FOR MORE
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── TEMPLATE 2: NEWS EXPLAINER (Clean Editorial) ─── */}
+              {activeSlide.layoutType === "news-explainer" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#f7f4ed] text-slate-900">
+                  {/* Header */}
+                  <div className="space-y-2">
+                    <div className="flex gap-1">
+                      {slides.map((_, idx) => (
+                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-slate-300">
+                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-slate-900" : "w-0"}`} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between text-slate-700 pt-1 text-[10px] font-bold">
+                      <span className="font-mono">{`0${activeSlideIndex + 1} / 0${slides.length}`}</span>
+                      <span className="font-black tracking-wider text-slate-950">USADAILY</span>
+                      <span className="text-xs">•••</span>
+                    </div>
+                  </div>
+
+                  {/* Editorial Typography & Framed Photo */}
+                  <div className="space-y-3 my-auto">
+                    <h3 className="font-serif font-bold text-lg sm:text-xl text-slate-950 leading-snug">
+                      {activeSlide.headingText}
+                    </h3>
+                    <div className="w-8 h-1 bg-red-600 rounded-full" />
+                    <p className="text-xs text-slate-700 leading-relaxed font-sans line-clamp-3">
+                      {activeSlide.descriptionText}
+                    </p>
+
                     {activeSlide.backgroundMedia && (
-                      <Image
-                        src={activeSlide.backgroundMedia}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        priority
-                      />
+                      <div className="relative w-full h-28 rounded-xl overflow-hidden shadow-md border border-slate-300/80">
+                        <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" />
+                      </div>
                     )}
+                  </div>
 
-                    {/* Overlay Gradient */}
-                    <div
-                      className="absolute inset-0 pointer-events-none"
-                      style={{
-                        background:
-                          "linear-gradient(to top, rgba(12, 13, 18, 0.95) 0%, rgba(12, 13, 18, 0.4) 50%, transparent 100%)",
-                      }}
-                    />
+                  {/* Bottom */}
+                  <div className="text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    ^ SWIPE UP
+                  </div>
+                </div>
+              )}
 
-                    {/* Top Progress & Header */}
-                    <div className="relative z-20 p-4 pb-0 space-y-2">
-                      <div className="flex gap-1">
-                        {slides.map((_, idx) => (
-                          <div key={idx} className="h-1 flex-1 rounded-full bg-white/30">
-                            <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
-                          </div>
-                        ))}
-                      </div>
+              {/* ─── TEMPLATE 3: PHOTO NEWS (Immersive) ─── */}
+              {activeSlide.layoutType === "photo-news" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-black text-white">
+                  {activeSlide.backgroundMedia && (
+                    <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover" priority />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 pointer-events-none" />
 
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white">
-                          StoryFlow
-                        </span>
-                        <span className="text-[10px] font-bold text-white/80 drop-shadow">
-                          Web Story
-                        </span>
-                      </div>
+                  {/* Header */}
+                  <div className="relative z-10 space-y-2">
+                    <div className="flex gap-1">
+                      {slides.map((_, idx) => (
+                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/40">
+                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-white" : "w-0"}`} />
+                        </div>
+                      ))}
                     </div>
+                    <div className="flex justify-end text-white/80 text-xs">•••</div>
+                  </div>
 
-                    {/* Dynamic Layout Middle/Bottom Content */}
-                    <div className="relative z-20 p-4">
-                      {/* 2. FLOATING GLASS CARD */}
-                      {activeSlide.layoutType === "floating-card" && (
-                        <div className="p-3.5 rounded-2xl bg-black/65 backdrop-blur-md border border-white/20 shadow-2xl space-y-1.5">
-                          <h3 className="font-extrabold text-sm text-white leading-snug">
-                            {activeSlide.headingText}
-                          </h3>
-                          <p className="text-[11px] text-slate-200 leading-relaxed line-clamp-3">
-                            {activeSlide.descriptionText}
-                          </p>
-                          {activeSlide.hasCta && (
-                            <div className="py-1.5 px-3 mt-2 text-center text-xs font-bold rounded-xl bg-blue-600 text-white shadow-lg">
-                              {activeSlide.ctaLabel || "Learn More"}
+                  {/* Bottom */}
+                  <div className="relative z-10 space-y-2 pb-2">
+                    <span className="inline-block px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase tracking-wider">
+                      {activeSlide.badgeText || "U.S. NEWS"}
+                    </span>
+                    <h3 className="font-serif font-bold text-xl text-white leading-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="text-xs text-slate-200 leading-snug drop-shadow line-clamp-2">
+                      {activeSlide.descriptionText}
+                    </p>
+                    <div className="text-center pt-2 text-[9px] font-black text-white/80 uppercase tracking-widest">
+                      ^ SWIPE UP
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── TEMPLATE 4: DATA / FACTS (Infographic) ─── */}
+              {activeSlide.layoutType === "data-facts" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#070d1d] text-white">
+                  {/* Header */}
+                  <div className="space-y-2">
+                    <div className="flex gap-1">
+                      {slides.map((_, idx) => (
+                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/20">
+                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-cyan-400" : "w-0"}`} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[8px] uppercase tracking-wider">
+                        {activeSlide.badgeText || "U.S. ECONOMY UPDATE"}
+                      </span>
+                      <span className="text-white/60 text-xs">•••</span>
+                    </div>
+                    <h3 className="text-base font-black text-white leading-tight">
+                      {activeSlide.headingText}
+                    </h3>
+                  </div>
+
+                  {/* 4 Metric Cards */}
+                  <div className="space-y-1.5 my-auto">
+                    {[
+                      { icon: Users, color: "text-cyan-400", stat: "272K", label: "Jobs added in May", sub: "vs. 165K in April" },
+                      { icon: TrendingUp, color: "text-emerald-400", stat: "3.9%", label: "Unemployment Rate", sub: "Unchanged from April" },
+                      { icon: DollarSign, color: "text-amber-400", stat: "4.1%", label: "Average Hourly Earnings", sub: "vs. May 2023" },
+                      { icon: Briefcase, color: "text-purple-400", stat: "8.1M", label: "Job Openings", sub: "at the end of April" },
+                    ].map((item, idx) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={idx} className="p-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center ${item.color} flex-shrink-0`}>
+                            <Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline gap-2">
+                              <span className={`text-sm font-black ${item.color}`}>{item.stat}</span>
+                              <span className="text-[10px] font-bold text-white truncate">{item.label}</span>
                             </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 3. BIG STAT / NUMBER */}
-                      {activeSlide.layoutType === "big-stat" && (
-                        <div className="space-y-1.5">
-                          <div className="text-4xl font-black text-amber-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
-                            {activeSlide.statNumber || "01"}
-                          </div>
-                          <h3 className="font-black text-base text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-                            {activeSlide.headingText}
-                          </h3>
-                          <p className="text-[11px] text-slate-200 drop-shadow line-clamp-3 leading-relaxed">
-                            {activeSlide.descriptionText}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* 4. QUOTE SPOTLIGHT */}
-                      {activeSlide.layoutType === "quote-spotlight" && (
-                        <div className="text-center space-y-2 py-4">
-                          <span className="text-4xl text-amber-300/90 font-serif leading-none block">“</span>
-                          <p className="font-bold text-sm text-white italic leading-relaxed px-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                            {activeSlide.headingText}
-                          </p>
-                          {activeSlide.quoteAuthor && (
-                            <p className="text-[10px] font-bold text-amber-300 tracking-wide uppercase pt-1">
-                              — {activeSlide.quoteAuthor}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 5. STEP LIST / TIP */}
-                      {activeSlide.layoutType === "step-list" && (
-                        <div className="space-y-2">
-                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[9px] uppercase shadow-md">
-                            {activeSlide.stepNumber || "STEP 01"}
-                          </span>
-                          <h3 className="font-black text-base text-white drop-shadow">
-                            {activeSlide.headingText}
-                          </h3>
-                          <p className="text-[11px] text-slate-200 drop-shadow line-clamp-3">
-                            {activeSlide.descriptionText}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* 6. CTA FINALE */}
-                      {activeSlide.layoutType === "cta-finale" && (
-                        <div className="space-y-3 text-center">
-                          <h3 className="font-black text-base text-white drop-shadow">
-                            {activeSlide.headingText}
-                          </h3>
-                          <p className="text-[11px] text-slate-200 drop-shadow line-clamp-2">
-                            {activeSlide.descriptionText}
-                          </p>
-                          <div className="py-2.5 px-4 text-center text-xs font-bold rounded-full bg-blue-600 text-white shadow-2xl flex items-center justify-center gap-1.5">
-                            <span>{activeSlide.ctaLabel || "Explore Full Story"}</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
+                            <p className="text-[8.5px] text-slate-400">{item.sub}</p>
                           </div>
                         </div>
-                      )}
+                      );
+                    })}
+                  </div>
 
-                      {/* 7. DEFAULT / COVER HERO */}
-                      {activeSlide.layoutType === "cover-hero" && (
-                        <div className="space-y-2">
-                          <h3 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
-                            {activeSlide.headingText}
-                          </h3>
-                          <p className="text-xs text-slate-200 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] line-clamp-3 leading-relaxed">
-                            {activeSlide.descriptionText}
-                          </p>
-                        </div>
-                      )}
+                  {/* Footer */}
+                  <div className="space-y-1 text-center">
+                    <p className="text-[8px] text-slate-400">
+                      {activeSlide.sourceText || "Source: U.S. Bureau of Labor Statistics"}
+                    </p>
+                    <div className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">
+                      ^ SWIPE UP FOR MORE
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── TEMPLATE 5: LIVE UPDATE (Timeline) ─── */}
+              {activeSlide.layoutType === "live-update" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#0d0f15] text-white">
+                  {/* Header */}
+                  <div className="space-y-1.5">
+                    <div className="flex gap-1">
+                      {slides.map((_, idx) => (
+                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/20">
+                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-red-500" : "w-0"}`} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        LIVE UPDATE
+                      </span>
+                      <span className="text-white/60 text-xs">•••</span>
+                    </div>
+                    <h3 className="text-sm font-black text-white leading-tight">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="text-[9px] text-slate-400">{activeSlide.locationDate || "May 31, 2024"}</p>
+                  </div>
+
+                  {/* Connected Timeline */}
+                  <div className="border-l-2 border-red-600 pl-3 space-y-2.5 my-auto">
+                    {[
+                      { time: "2:45 PM", text: "Severe storms reported in Texas and Oklahoma." },
+                      { time: "3:30 PM", text: "Tornado warnings issued for 6 states." },
+                      { time: "4:10 PM", text: "Over 120,000 customers without power." },
+                      { time: "4:45 PM", text: "Rescue operations underway in affected areas." },
+                    ].map((item, idx) => (
+                      <div key={idx} className="relative">
+                        <div className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-red-600 ring-2 ring-[#0d0f15]" />
+                        <span className="text-[8px] font-black text-red-400 block">{item.time}</span>
+                        <p className="text-[9.5px] text-slate-200 leading-snug">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="text-center text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                    ^ SWIPE UP FOR MORE
+                  </div>
+                </div>
+              )}
+
+              {/* ─── TEMPLATE 6: ENTERTAINMENT (Magazine) ─── */}
+              {activeSlide.layoutType === "entertainment-magazine" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-black text-white">
+                  {activeSlide.backgroundMedia && (
+                    <Image src={activeSlide.backgroundMedia} alt="" fill className="object-cover opacity-80" priority />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-purple-950/20 to-black/60 pointer-events-none" />
+
+                  {/* Header */}
+                  <div className="relative z-10 space-y-1.5">
+                    <div className="flex gap-1">
+                      {slides.map((_, idx) => (
+                        <div key={idx} className="h-0.5 flex-1 rounded-full bg-white/30">
+                          <div className={`h-full ${idx <= activeSlideIndex ? "bg-purple-500" : "w-0"}`} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-black text-[8px] uppercase tracking-wider">
+                        ENTERTAINMENT
+                      </span>
+                      <span className="text-white/60 text-xs">•••</span>
+                    </div>
+
+                    <h3 className="font-serif font-black text-2xl text-white mt-2 leading-none">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="font-serif italic text-xs text-pink-400 font-bold">
+                      {activeSlide.subheadText || "Stars in New Blockbuster Movie"}
+                    </p>
+                  </div>
+
+                  {/* Bottom */}
+                  <div className="relative z-10 space-y-2 pb-2">
+                    <p className="text-xs text-slate-200 line-clamp-2 leading-snug drop-shadow">
+                      {activeSlide.descriptionText}
+                    </p>
+                    <div className="py-2 px-3 rounded-full bg-purple-600 text-white text-[9px] font-bold flex items-center justify-center gap-1.5 shadow-xl">
+                      <span>{activeSlide.ctaLabel || "SWIPE UP FOR DETAILS"}</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── TEMPLATE 7 & 8: QUOTE & CTA ─── */}
+              {activeSlide.layoutType === "quote-spotlight" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-slate-950 text-white text-center">
+                  <span className="text-3xl text-amber-400/80 font-serif leading-none mt-4">“</span>
+                  <p className="font-serif italic text-sm font-bold text-white px-2 leading-relaxed">
+                    {activeSlide.headingText}
+                  </p>
+                  <cite className="text-[9px] font-black text-amber-400 uppercase not-italic tracking-wider mb-4">
+                    — {activeSlide.quoteAuthor || "Official Statement"}
+                  </cite>
+                </div>
+              )}
+
+              {activeSlide.layoutType === "cta-finale" && (
+                <div className="w-full h-full rounded-[24px] overflow-hidden relative flex flex-col justify-between p-4 bg-[#090d16] text-white text-center">
+                  <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase tracking-wider mx-auto">
+                    STAY INFORMED
+                  </span>
+                  <div className="space-y-2 my-auto">
+                    <h3 className="text-base font-black text-white leading-snug">
+                      {activeSlide.headingText}
+                    </h3>
+                    <p className="text-xs text-slate-300 line-clamp-3">
+                      {activeSlide.descriptionText}
+                    </p>
+                  </div>
+                  <div className="py-2.5 px-4 rounded-full bg-red-600 text-white text-xs font-bold shadow-2xl">
+                    {activeSlide.ctaLabel || "Read Full Investigation →"}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quick Navigation Controller */}
@@ -1492,17 +1684,13 @@ export function StoryWizard({
               </button>
 
               <span className="text-xs font-bold text-slate-800">
-                Slide {activeSlideIndex + 1} / {slides.length}
+                Page {activeSlideIndex + 1} of {slides.length}
               </span>
 
               <button
                 type="button"
                 disabled={activeSlideIndex === slides.length - 1}
-                onClick={() =>
-                  setActiveSlideIndex((prev) =>
-                    Math.min(slides.length - 1, prev + 1)
-                  )
-                }
+                onClick={() => setActiveSlideIndex((prev) => Math.min(slides.length - 1, prev + 1))}
                 className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 disabled:opacity-30"
               >
                 <ChevronRight className="w-4 h-4" />

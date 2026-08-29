@@ -127,13 +127,215 @@ async function main() {
   // ─── 12 High-Quality Visual Stories ───────────────────────────────────────
   const stories = [
     {
+      title: 'USA Daily: Massive Wildfire Hits California & Special Edition',
+      slug: 'usa-daily-breaking-news-special-edition',
+      description: 'Comprehensive vertical visual briefing covering California wildfires, education policies, jobs reports, and live storm trackers.',
+      excerpt: 'Massive Wildfire Hits California, New Student Loan Plan, May Jobs Report, and Live Storm Updates.',
+      coverImage: 'https://images.unsplash.com/photo-1542382257-80dedb725088?w=1080&q=80',
+      status: StoryStatus.PUBLISHED,
+      isFeatured: true,
+      authorId: authors['alex-chen'].id,
+      categoryId: categories['technology']?.id || categories['travel'].id,
+      viewCount: 38400,
+      publishedAt: new Date(),
+      pages: [
+        {
+          order: 0,
+          background: '#0c0d12',
+          duration: 7,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                src: 'https://images.unsplash.com/photo-1542382257-80dedb725088?w=1080&q=80',
+                layoutMeta: {
+                  layoutType: 'breaking-news',
+                  badgeText: 'BREAKING NEWS',
+                  locationDate: 'JUNE 1, 2024 | CALIFORNIA, USA',
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'MASSIVE WILDFIRE HITS CALIFORNIA' },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'Thousands evacuated as firefighters battle the blaze across state canyons' },
+            },
+          ],
+        },
+        {
+          order: 1,
+          background: '#f7f4ed',
+          duration: 7,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                src: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1080&q=80',
+                layoutMeta: {
+                  layoutType: 'news-explainer',
+                  badgeText: 'EXPLAINER',
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'What You Need to Know About The New Student Loan Plan' },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'The U.S. Department of Education has announced a major update to the student loan forgiveness program.' },
+            },
+          ],
+        },
+        {
+          order: 2,
+          background: '#000000',
+          duration: 7,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                src: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=1080&q=80',
+                layoutMeta: {
+                  layoutType: 'photo-news',
+                  badgeText: 'U.S. NEWS',
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'Foggy Morning in San Francisco' },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'A beautiful start to the day in the Bay Area.' },
+            },
+          ],
+        },
+        {
+          order: 3,
+          background: '#070d1d',
+          duration: 8,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                layoutMeta: {
+                  layoutType: 'data-facts',
+                  badgeText: 'U.S. ECONOMY UPDATE',
+                  sourceText: 'Source: U.S. Bureau of Labor Statistics',
+                  statsList: [
+                    { icon: 'users', stat: '272K', label: 'Jobs added in May', subtext: 'vs. 165K in April' },
+                    { icon: 'trending', stat: '3.9%', label: 'Unemployment Rate', subtext: 'Unchanged from April' },
+                    { icon: 'dollar', stat: '4.1%', label: 'Average Hourly Earnings', subtext: 'vs. May 2023' },
+                    { icon: 'briefcase', stat: '8.1M', label: 'Job Openings', subtext: 'at the end of April' },
+                  ],
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'May Jobs Report Key Highlights' },
+            },
+          ],
+        },
+        {
+          order: 4,
+          background: '#0d0f15',
+          duration: 8,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                layoutMeta: {
+                  layoutType: 'live-update',
+                  badgeText: '🔴 LIVE UPDATE',
+                  locationDate: 'May 31, 2024',
+                  timelineList: [
+                    { time: '2:45 PM', text: 'Severe storms reported in Texas and Oklahoma.' },
+                    { time: '3:30 PM', text: 'Tornado warnings issued for 6 states.' },
+                    { time: '4:10 PM', text: 'Over 120,000 customers without power.' },
+                    { time: '4:45 PM', text: 'Rescue operations underway in affected areas.' },
+                  ],
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'What We Know So Far' },
+            },
+          ],
+        },
+        {
+          order: 5,
+          background: '#0a060e',
+          duration: 8,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                src: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1080&q=80',
+                layoutMeta: {
+                  layoutType: 'entertainment-magazine',
+                  badgeText: 'ENTERTAINMENT',
+                  subheadText: 'Stars in New Blockbuster Movie',
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'Zendaya' },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'Everything we know about the highly anticipated film.' },
+            },
+            {
+              type: ElementType.CTA,
+              content: { label: 'SWIPE UP FOR DETAILS', url: '/stories' },
+            },
+          ],
+        },
+        {
+          order: 6,
+          background: '#090d16',
+          duration: 8,
+          elements: [
+            {
+              type: ElementType.BACKGROUND,
+              content: {
+                layoutMeta: {
+                  layoutType: 'cta-finale',
+                },
+              },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'Follow Live Coverage on USA Daily' },
+            },
+            {
+              type: ElementType.TEXT,
+              content: { text: 'Get real-time breaking news alerts and in-depth visual journalism on your mobile device.' },
+            },
+            {
+              type: ElementType.CTA,
+              content: { label: 'Read Full Investigation', url: '/stories' },
+            },
+          ],
+        },
+      ],
+    },
+    {
       title: '10 Hidden Coastal Gems in India You Must Visit',
       slug: '10-hidden-beaches-in-india',
       description: 'Discover India’s most secluded and breathtaking coastlines away from the tourist crowds.',
       excerpt: 'From Goa’s secret coves to Kerala’s golden cliff shores, explore the untouched coastlines of India.',
       coverImage: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1080&q=80',
       status: StoryStatus.PUBLISHED,
-      isFeatured: true,
+      isFeatured: false,
       authorId: authors['sarah-johnson'].id,
       categoryId: categories['travel'].id,
       viewCount: 14820,
@@ -599,16 +801,17 @@ async function main() {
         },
       });
 
-      for (const el of p.elements) {
+      for (let elIdx = 0; elIdx < p.elements.length; elIdx++) {
+        const el = p.elements[elIdx] as any;
         await prisma.storyElement.create({
           data: {
             pageId: page.id,
             type: el.type,
-            content: el.content,
-            position: el.position,
-            size: el.size,
-            style: el.style,
-            order: el.order,
+            content: el.content || {},
+            position: el.position || { x: 0, y: 0 },
+            size: el.size || { width: 100, height: 100 },
+            style: el.style || {},
+            order: el.order ?? elIdx,
           },
         });
       }

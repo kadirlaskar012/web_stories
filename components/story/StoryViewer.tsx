@@ -2,8 +2,21 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { StoryPage, StoryElement } from "@prisma/client";
-import { X, ChevronLeft, ChevronRight, Share2, Play, Pause, ExternalLink, ArrowRight } from "lucide-react";
-import { SlideLayoutType } from "@/lib/themes/layouts";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Share2,
+  Pause,
+  ExternalLink,
+  ArrowRight,
+  Users,
+  TrendingUp,
+  DollarSign,
+  Briefcase,
+  ChevronUp,
+} from "lucide-react";
+import { SlideLayoutType, DataFactItem, TimelineItem } from "@/lib/themes/layouts";
 
 type PageWithElements = StoryPage & { elements: StoryElement[] };
 
@@ -20,7 +33,7 @@ export function StoryViewer({
   pages,
   title,
   authorName,
-  publisherName,
+  publisherName = "USA DAILY",
   onClose,
   showCloseButton = true,
 }: StoryViewerProps) {
@@ -162,20 +175,41 @@ export function StoryViewer({
   const bgElement = page.elements.find((el) => el.type === "BACKGROUND");
   const textElements = page.elements.filter((el) => el.type === "TEXT");
   const ctaElement = page.elements.find((el) => el.type === "CTA");
-  const bgColor = page.background || "#0f172a";
+  const bgColor = page.background || "#0c0d12";
 
   const layoutMeta = (bgElement?.content as any)?.layoutMeta || {};
-  const layoutType: SlideLayoutType = layoutMeta.layoutType || (currentPage === 0 ? "cover-hero" : "floating-card");
+  const layoutType: SlideLayoutType = layoutMeta.layoutType || (currentPage === 0 ? "breaking-news" : "news-explainer");
 
   const headingText = (textElements[0]?.content as any)?.text || "";
   const descriptionText = (textElements[1]?.content as any)?.text || "";
+  const badgeText = layoutMeta.badgeText || (currentPage === 0 ? "BREAKING NEWS" : "U.S. NEWS");
+  const locationDate = layoutMeta.locationDate || "JUNE 1, 2024 | CALIFORNIA, USA";
+  const subheadText = layoutMeta.subheadText || "";
+  const sourceText = layoutMeta.sourceText || "Source: Official Dispatch";
+  const quoteAuthor = layoutMeta.quoteAuthor || "";
+
+  const statsList: DataFactItem[] = layoutMeta.statsList || [
+    { icon: "users", stat: "272K", label: "Jobs added in May", subtext: "vs. 165K in April" },
+    { icon: "trending", stat: "3.9%", label: "Unemployment Rate", subtext: "Unchanged from April" },
+    { icon: "dollar", stat: "4.1%", label: "Average Hourly Earnings", subtext: "vs. May 2023" },
+    { icon: "briefcase", stat: "8.1M", label: "Job Openings", subtext: "at the end of April" },
+  ];
+
+  const timelineList: TimelineItem[] = layoutMeta.timelineList || [
+    { time: "2:45 PM", text: "Severe storms reported across Texas and Oklahoma." },
+    { time: "3:30 PM", text: "Tornado warnings issued for 6 Midwestern states." },
+    { time: "4:10 PM", text: "Over 120,000 utility customers without power." },
+    { time: "4:45 PM", text: "Emergency rescue operations underway in affected counties." },
+  ];
+
+  const isLightExplainer = layoutType === "news-explainer";
 
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-2xl select-none"
       role="region"
-      aria-label="Web Story Viewer"
+      aria-label="USA News Web Story Viewer"
     >
       {/* Desktop chevrons */}
       {currentPage > 0 && (
@@ -200,7 +234,7 @@ export function StoryViewer({
 
       {/* Story 9:16 Canvas */}
       <div
-        className="story-canvas relative z-20 overflow-hidden rounded-[28px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border border-white/10"
+        className="story-canvas relative z-20 overflow-hidden rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] border border-white/10"
         style={{
           width: "min(100vw, calc(100vh * 9 / 16))",
           height: "min(100vh, calc(100vw * 16 / 9))",
@@ -211,177 +245,288 @@ export function StoryViewer({
         onTouchEnd={handleTouchEnd}
         aria-label={`Slide ${currentPage + 1} of ${pages.length}`}
       >
-        {/* Background Canvas Base */}
+        {/* Base Background */}
         <div
           className="absolute inset-0 transition-colors duration-500"
-          style={{ backgroundColor: bgColor }}
+          style={{ backgroundColor: isLightExplainer ? "#f7f4ed" : layoutType === "data-facts" ? "#070d1d" : bgColor }}
         />
 
-        {/* ─── 1. LAYOUT: SPLIT HALF & HALF ─── */}
-        {layoutType === "split-half" ? (
-          <div className="absolute inset-0 flex flex-col z-10">
-            {/* Top 50% Image */}
-            <div className="h-1/2 relative overflow-hidden bg-slate-900">
-              {bgElement && (bgElement.content as any)?.src && (
-                <Image
-                  src={(bgElement.content as any).src}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  priority
-                />
-              )}
+        {/* ─── 1. BREAKING NEWS – BOLD ─── */}
+        {layoutType === "breaking-news" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/60 pointer-events-none" />
+
+            {/* Top Brand Tag */}
+            <div className="relative z-20 pt-8 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded bg-red-600 font-black text-xs tracking-wider text-white shadow">
+                  {publisherName}
+                </span>
+                <span className="text-xs text-white/80 font-medium">2h ago</span>
+              </div>
             </div>
 
-            {/* Bottom 50% Solid Editorial Card */}
-            <div className="h-1/2 bg-slate-950 p-6 flex flex-col justify-between">
-              <div className="space-y-3">
-                <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 font-bold text-xs uppercase w-fit inline-block">
-                  {publisherName || "Editorial"}
-                </span>
-                <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
-                  {headingText}
-                </h2>
-                <p className="text-sm text-slate-300 leading-relaxed line-clamp-4">
-                  {descriptionText}
-                </p>
+            {/* Bottom Content */}
+            <div className="relative z-20 space-y-3 pb-4">
+              <span className="inline-block px-3 py-1 rounded bg-red-600 text-white font-black text-xs uppercase tracking-widest shadow-xl">
+                {badgeText}
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight uppercase drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
+                {headingText}
+              </h1>
+              <p className="text-sm text-slate-200 leading-snug drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="text-xs font-bold text-red-400 border-l-2 border-red-500 pl-2 uppercase tracking-wide">
+                {locationDate}
               </div>
-
-              {ctaElement && (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <a
-                    href={(ctaElement.content as any)?.url || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 transition-all"
-                  >
-                    <span>{(ctaElement.content as any)?.label || "Learn More"}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </a>
-                </div>
-              )}
+              <div className="pt-3 flex flex-col items-center justify-center text-white/80 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
+              </div>
             </div>
           </div>
-        ) : (
-          /* ─── FULL-BLEED BACKGROUND LAYOUTS ─── */
-          <>
-            {bgElement && (bgElement.content as any)?.src && (
-              <Image
-                src={(bgElement.content as any).src}
-                alt=""
-                fill
-                className="object-cover"
-                priority
-              />
-            )}
+        )}
 
-            {/* Cinematic Gradient Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/60 pointer-events-none z-10" />
+        {/* ─── 2. NEWS EXPLAINER – EDITORIAL ─── */}
+        {layoutType === "news-explainer" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-slate-900 bg-[#f7f4ed]">
+            {/* Header */}
+            <div className="pt-8 flex items-center justify-between text-xs font-bold text-slate-600">
+              <span className="font-mono">{`0${currentPage + 1} / 0${pages.length}`}</span>
+              <span className="font-black tracking-widest text-slate-950">{publisherName}</span>
+            </div>
 
-            {/* Dynamic Layout Content Containers */}
-            <div className="absolute bottom-12 inset-x-0 z-20 px-6 space-y-4">
-              {/* 2. FLOATING GLASS CARD */}
-              {layoutType === "floating-card" && (
-                <div className="p-5 rounded-3xl bg-black/65 backdrop-blur-xl border border-white/20 shadow-2xl space-y-2">
-                  <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider">
-                    {publisherName || "Spotlight"}
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-md">
-                    {headingText}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed line-clamp-4">
-                    {descriptionText}
-                  </p>
-                </div>
-              )}
+            {/* Middle Content */}
+            <div className="space-y-4 my-auto">
+              <h2 className="font-serif font-bold text-2xl sm:text-3xl text-slate-950 leading-tight">
+                {headingText}
+              </h2>
+              <div className="w-10 h-1 bg-red-600 rounded-full" />
+              <p className="text-sm text-slate-800 leading-relaxed font-sans">
+                {descriptionText}
+              </p>
 
-              {/* 3. BIG STAT / NUMBER */}
-              {layoutType === "big-stat" && (
-                <div className="space-y-2">
-                  <div className="text-6xl font-black text-amber-300 tracking-tight drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">
-                    {layoutMeta.statNumber || "01"}
-                  </div>
-                  <h2 className="text-2xl font-black text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-                    {headingText}
-                  </h2>
-                  <p className="text-sm text-slate-200 leading-relaxed drop-shadow line-clamp-3">
-                    {descriptionText}
-                  </p>
-                </div>
-              )}
-
-              {/* 4. QUOTE SPOTLIGHT */}
-              {layoutType === "quote-spotlight" && (
-                <div className="text-center space-y-3 py-6">
-                  <span className="text-6xl text-amber-300 font-serif leading-none block drop-shadow-lg">
-                    “
-                  </span>
-                  <blockquote className="text-lg sm:text-xl font-bold text-white italic leading-relaxed px-2 drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)]">
-                    {headingText}
-                  </blockquote>
-                  {layoutMeta.quoteAuthor && (
-                    <cite className="text-xs font-bold text-amber-300 tracking-wider uppercase block not-italic pt-2 drop-shadow">
-                      — {layoutMeta.quoteAuthor}
-                    </cite>
-                  )}
-                </div>
-              )}
-
-              {/* 5. STEP LIST */}
-              {layoutType === "step-list" && (
-                <div className="space-y-2.5">
-                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-500 text-white font-black text-xs uppercase shadow-lg">
-                    {layoutMeta.stepNumber || "STEP 01"}
-                  </span>
-                  <h2 className="text-2xl font-black text-white leading-tight drop-shadow">
-                    {headingText}
-                  </h2>
-                  <p className="text-sm text-slate-200 leading-relaxed drop-shadow line-clamp-4">
-                    {descriptionText}
-                  </p>
-                </div>
-              )}
-
-              {/* 6. CTA FINALE */}
-              {layoutType === "cta-finale" && (
-                <div className="space-y-4 text-center">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow">
-                    {headingText}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed drop-shadow">
-                    {descriptionText}
-                  </p>
-                </div>
-              )}
-
-              {/* 7. COVER HERO */}
-              {layoutType === "cover-hero" && (
-                <div className="space-y-2">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
-                    {headingText}
-                  </h2>
-                  <p className="text-sm text-slate-200 leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3">
-                    {descriptionText}
-                  </p>
-                </div>
-              )}
-
-              {/* Action Button */}
-              {ctaElement && (
-                <div className="pt-2" onClick={(e) => e.stopPropagation()}>
-                  <a
-                    href={(ctaElement.content as any)?.url || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-white hover:bg-slate-100 text-slate-950 font-black text-xs sm:text-sm shadow-2xl hover:scale-105 transition-all"
-                  >
-                    <span>{(ctaElement.content as any)?.label || "Explore More"}</span>
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+              {bgElement && (bgElement.content as any)?.src && (
+                <div className="relative w-full h-44 sm:h-48 rounded-2xl overflow-hidden shadow-lg border border-slate-300">
+                  <Image src={(bgElement.content as any).src} alt="" fill className="object-cover" />
                 </div>
               )}
             </div>
-          </>
+
+            {/* Bottom */}
+            <div className="flex flex-col items-center justify-center text-slate-600 animate-bounce">
+              <ChevronUp className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP</span>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 3. PHOTO NEWS – IMMERSIVE ─── */}
+        {layoutType === "photo-news" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/50 pointer-events-none" />
+
+            <div className="relative z-20 pt-8" />
+
+            {/* Bottom */}
+            <div className="relative z-20 space-y-3 pb-4">
+              <span className="inline-block px-3 py-1 rounded bg-red-600 text-white font-bold text-xs uppercase tracking-wider">
+                {badgeText}
+              </span>
+              <h2 className="font-serif font-bold text-2xl sm:text-3xl text-white leading-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
+                {headingText}
+              </h2>
+              <p className="text-sm text-slate-200 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-3 flex flex-col items-center justify-center text-white/80 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 4. DATA / FACTS – INFOGRAPHIC ─── */}
+        {layoutType === "data-facts" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white bg-[#070d1d]">
+            {/* Header */}
+            <div className="pt-8 space-y-2">
+              <span className="inline-block px-3 py-1 rounded bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow">
+                {badgeText}
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                {headingText}
+              </h2>
+            </div>
+
+            {/* 4 Metric Cards */}
+            <div className="space-y-2.5 my-auto">
+              {statsList.map((item, idx) => {
+                const Icon =
+                  item.icon === "users"
+                    ? Users
+                    : item.icon === "trending"
+                    ? TrendingUp
+                    : item.icon === "dollar"
+                    ? DollarSign
+                    : Briefcase;
+                const colors = [
+                  "text-cyan-400 bg-cyan-500/10",
+                  "text-emerald-400 bg-emerald-500/10",
+                  "text-amber-400 bg-amber-500/10",
+                  "text-purple-400 bg-purple-500/10",
+                ];
+                const activeColor = colors[idx % colors.length];
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3.5 backdrop-blur-sm"
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${activeColor} flex-shrink-0`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg font-black tracking-tight text-white">{item.stat}</span>
+                        <span className="text-xs font-bold text-slate-200 truncate">{item.label}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">{item.subtext}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="space-y-2 text-center">
+              <p className="text-[10px] text-slate-400">{sourceText}</p>
+              <div className="flex flex-col items-center justify-center text-cyan-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 5. LIVE UPDATE – TIMELINE ─── */}
+        {layoutType === "live-update" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white bg-[#0d0f15]">
+            {/* Header */}
+            <div className="pt-8 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded bg-red-600 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  LIVE UPDATE
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight mt-1">
+                {headingText}
+              </h2>
+              <p className="text-xs text-slate-400 font-medium">{locationDate}</p>
+            </div>
+
+            {/* Connected Timeline */}
+            <div className="border-l-2 border-red-600 pl-4 space-y-4 my-auto">
+              {timelineList.map((item, idx) => (
+                <div key={idx} className="relative">
+                  <div className="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-red-600 ring-4 ring-[#0d0f15]" />
+                  <span className="text-xs font-black text-red-400 block">{item.time}</span>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-snug">{item.text}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col items-center justify-center text-white/80 animate-bounce">
+              <ChevronUp className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MORE</span>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 6. ENTERTAINMENT – MAGAZINE ─── */}
+        {layoutType === "entertainment-magazine" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-85" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-purple-950/20 to-black/60 pointer-events-none" />
+
+            {/* Header */}
+            <div className="relative z-20 pt-8 space-y-1">
+              <span className="inline-block px-3 py-1 rounded bg-purple-600 text-white font-black text-xs uppercase tracking-wider shadow">
+                {badgeText}
+              </span>
+              <h1 className="font-serif font-black text-4xl sm:text-5xl text-white leading-none mt-2">
+                {headingText}
+              </h1>
+              <p className="font-serif italic text-base sm:text-lg text-pink-400 font-bold">
+                {subheadText || "Stars in New Blockbuster Movie"}
+              </p>
+            </div>
+
+            {/* Bottom */}
+            <div className="relative z-20 space-y-4 pb-4">
+              <p className="text-xs sm:text-sm text-slate-200 line-clamp-3 leading-snug drop-shadow">
+                {descriptionText}
+              </p>
+              <div
+                className="w-full py-3.5 px-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm shadow-2xl flex items-center justify-center gap-2 transition-transform hover:scale-105"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span>{ctaElement ? (ctaElement.content as any)?.label : "SWIPE UP FOR DETAILS"}</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 7. QUOTE SPOTLIGHT ─── */}
+        {layoutType === "quote-spotlight" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white text-center bg-slate-950">
+            <span className="text-5xl text-amber-400 font-serif leading-none mt-12 block">“</span>
+            <blockquote className="font-serif italic text-lg sm:text-xl font-bold text-white px-2 leading-relaxed my-auto">
+              {headingText}
+            </blockquote>
+            <cite className="text-xs font-black text-amber-400 uppercase tracking-widest block not-italic mb-10">
+              — {quoteAuthor || "Official Statement"}
+            </cite>
+          </div>
+        )}
+
+        {/* ─── 8. CTA FINALE ─── */}
+        {layoutType === "cta-finale" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white text-center bg-[#090d16]">
+            <span className="inline-block px-3 py-1 rounded bg-red-600 text-white font-black text-xs uppercase tracking-wider mx-auto mt-12">
+              STAY INFORMED
+            </span>
+            <div className="space-y-3 my-auto">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                {headingText}
+              </h2>
+              <p className="text-sm text-slate-300 max-w-xs mx-auto">
+                {descriptionText}
+              </p>
+            </div>
+            <div className="mb-8" onClick={(e) => e.stopPropagation()}>
+              <a
+                href={(ctaElement?.content as any)?.url || "/stories"}
+                className="inline-flex items-center justify-center gap-2 py-3.5 px-8 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-sm shadow-2xl transition-all"
+              >
+                <span>{(ctaElement?.content as any)?.label || "Read Full Story"}</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
         )}
 
         {/* Top Progress Bars */}
@@ -389,11 +534,9 @@ export function StoryViewer({
           {pages.map((_, i) => (
             <div key={i} className="story-progress-bar flex-1" aria-hidden="true">
               <div
-                className="story-progress-fill"
+                className={`story-progress-fill ${isLightExplainer ? "bg-slate-900" : "bg-white"}`}
                 style={{
-                  transform: `scaleX(${
-                    i < currentPage ? 1 : i === currentPage ? progress : 0
-                  })`,
+                  transform: `scaleX(${i < currentPage ? 1 : i === currentPage ? progress : 0})`,
                   transitionDuration: "0ms",
                 }}
               />
@@ -403,24 +546,29 @@ export function StoryViewer({
 
         {/* Top Header Information */}
         <div className="absolute top-7 inset-x-0 z-30 flex items-center justify-between px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-md">
-              <span className="text-white text-xs font-black">
-                {publisherName ? publisherName[0] : "S"}
-              </span>
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow ${
+                isLightExplainer ? "bg-slate-900 text-white" : "bg-white/20 text-white backdrop-blur-md"
+              }`}
+            >
+              {publisherName[0]}
             </div>
-            <div className="drop-shadow-md">
-              <p className="text-white text-xs font-bold leading-none">
-                {publisherName || "StoryFlow"}
+            <div>
+              <p className={`text-xs font-black leading-none ${isLightExplainer ? "text-slate-900" : "text-white"}`}>
+                {publisherName}
               </p>
-              <p className="text-white/80 text-[11px] font-medium mt-0.5">{authorName}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleShare}
-              className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors shadow-md"
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors shadow ${
+                isLightExplainer
+                  ? "bg-slate-200 text-slate-800 hover:bg-slate-300"
+                  : "bg-black/40 text-white backdrop-blur-md hover:bg-black/60"
+              }`}
               aria-label="Share story"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -432,7 +580,11 @@ export function StoryViewer({
                   e.stopPropagation();
                   onClose();
                 }}
-                className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors shadow-md"
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors shadow ${
+                  isLightExplainer
+                    ? "bg-slate-200 text-slate-800 hover:bg-slate-300"
+                    : "bg-black/40 text-white backdrop-blur-md hover:bg-black/60"
+                }`}
                 aria-label="Close story"
               >
                 <X className="w-4 h-4" />
