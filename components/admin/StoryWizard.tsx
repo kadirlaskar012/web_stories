@@ -11,6 +11,8 @@ import {
   DataFactItem,
   TimelineItem,
 } from "@/lib/themes/layouts";
+import { STORY_TEMPLATES, StoryTemplatePreset } from "@/lib/themes/templates";
+import { TemplateGallery } from "./TemplateGallery";
 import { slugify } from "@/lib/slugify";
 import {
   Layers,
@@ -37,11 +39,6 @@ import {
   ChevronUp,
   Clock,
   Sparkles,
-  Flame,
-  Radio,
-  BookOpen,
-  Camera,
-  BarChart3,
 } from "lucide-react";
 
 export interface SlideData {
@@ -78,7 +75,12 @@ export function StoryWizard({
 }: StoryWizardProps) {
   const router = useRouter();
 
-  // Selected Story Template (One template per story, consistent across all slides)
+  // Story Mode: 'gallery' (choose template first) or 'editor' (building story)
+  const [viewMode, setViewMode] = useState<"gallery" | "editor">(() => {
+    return initialStory ? "editor" : "gallery";
+  });
+
+  // Selected Story Template
   const [selectedTemplate, setSelectedTemplate] = useState<SlideLayoutType>(() => {
     if (initialStory?.pages?.[0]?.elements?.[0]?.content?.layoutMeta?.layoutType) {
       return initialStory.pages[0].elements[0].content.layoutMeta.layoutType;
@@ -86,10 +88,10 @@ export function StoryWizard({
     return "breaking-news";
   });
 
-  // Wizard Step: 1 = Template & Details, 2 = Slide Builder, 3 = SEO Audit, 4 = Publish
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
+  // Wizard Step inside Editor: 1 = Details & Slides, 2 = Google SEO Audit, 3 = Publish
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
-  // ─── Step 1: Story Details & SEO State ───────────────────────────────────
+  // ─── Story Details State ───────────────────────────────────────────────────
   const [title, setTitle] = useState(
     initialStory?.title || "Massive Wildfire Hits California as Firefighters Battle Blaze"
   );
@@ -115,7 +117,7 @@ export function StoryWizard({
   );
   const [isFeatured, setIsFeatured] = useState(initialStory?.isFeatured ?? true);
 
-  // ─── Step 2: Slide Builder State ─────────────────────────────────────────
+  // ─── Slide Builder State ─────────────────────────────────────────────────
   const [slides, setSlides] = useState<SlideData[]>(() => {
     if (initialStory?.pages?.length > 0) {
       return initialStory.pages.map((p: any, idx: number) => {
@@ -185,13 +187,13 @@ export function StoryWizard({
         layoutType: "breaking-news",
         backgroundMedia: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=1080&q=80",
         backgroundColor: "#0c0d12",
-        badgeText: "UPDATE",
-        headingText: "Shelters Open Across County",
-        descriptionText: "Emergency Red Cross stations activated with medical supplies and power stations for residents.",
+        badgeText: "EVACUATION MAP",
+        headingText: "Emergency Shelters Open Across County",
+        descriptionText: "Red Cross stations activated with emergency beds, food supplies, and air filters.",
         locationDate: "JUNE 1, 2024 | LOS ANGELES COUNTY",
         duration: 7,
         hasCta: true,
-        ctaLabel: "Read Live Evacuation Map",
+        ctaLabel: "View Live Evacuation Map",
         ctaUrl: "/stories",
       },
     ];
@@ -199,7 +201,7 @@ export function StoryWizard({
 
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
-  // ─── Step 4: Publishing & Status ─────────────────────────────────────────
+  // ─── Publishing & Status ─────────────────────────────────────────────────
   const [status, setStatus] = useState<StoryStatus>(
     initialStory?.status || StoryStatus.PUBLISHED
   );
@@ -223,27 +225,41 @@ export function StoryWizard({
     }
   }, [title, autoSlug]);
 
-  // When story template changes, synchronize all slides to use this chosen template
-  const handleSelectStoryTemplate = (templateId: SlideLayoutType) => {
-    setSelectedTemplate(templateId);
-    const templateConfig = getLayoutById(templateId);
+  // When user selects template from the Template Gallery
+  const handleTemplateSelectedFromGallery = (template: StoryTemplatePreset) => {
+    setSelectedTemplate(template.layoutType);
+    setTitle(template.defaultTitle);
+    setDescription(template.defaultExcerpt);
+    setExcerpt(template.defaultExcerpt);
+    setCoverImage(template.coverImage);
+    setTagsInput(template.defaultTags.join(", "));
 
-    setSlides((prev) =>
-      prev.map((s, idx) => ({
-        ...s,
-        layoutType: templateId,
-        backgroundColor:
-          templateId === "news-explainer"
-            ? "#f7f4ed"
-            : templateId === "data-facts"
-            ? "#070d1d"
-            : "#0c0d12",
-        badgeText: s.badgeText || templateConfig.defaultData.badgeText,
-        backgroundMedia: s.backgroundMedia || templateConfig.defaultData.mediaUrl || coverImage,
-        statsList: templateConfig.defaultData.statsList,
-        timelineList: templateConfig.defaultData.timelineList,
+    // Populate slides from template
+    setSlides(
+      template.defaultSlides.map((s, idx) => ({
+        id: `slide-${idx}`,
+        order: idx,
+        layoutType: template.layoutType,
+        backgroundMedia: s.backgroundMedia,
+        backgroundColor: s.backgroundColor,
+        badgeText: s.badgeText,
+        headingText: s.headingText,
+        subheadText: s.subheadText,
+        descriptionText: s.descriptionText,
+        locationDate: s.locationDate,
+        sourceText: s.sourceText,
+        quoteAuthor: s.quoteAuthor,
+        duration: s.duration,
+        hasCta: !!s.hasCta,
+        ctaLabel: s.ctaLabel || "Swipe Up for Details",
+        ctaUrl: s.ctaUrl || "",
+        statsList: s.statsList,
+        timelineList: s.timelineList,
       }))
     );
+
+    setActiveSlideIndex(0);
+    setViewMode("editor");
   };
 
   const activeSlide = slides[activeSlideIndex] || slides[0];
@@ -293,7 +309,7 @@ export function StoryWizard({
     });
   };
 
-  // Add new slide directly in the chosen story template!
+  // Add new slide directly in the chosen story template
   const handleAddSlideInChosenTemplate = () => {
     const tConfig = getLayoutById(selectedTemplate);
     const newSlide: SlideData = {
@@ -374,7 +390,6 @@ export function StoryWizard({
       const pagesPayload = slides.map((slide, idx) => {
         const elements: any[] = [];
 
-        // Background Element with full template metadata
         elements.push({
           type: ElementType.BACKGROUND,
           content: {
@@ -397,7 +412,6 @@ export function StoryWizard({
           order: 0,
         });
 
-        // Primary Headline
         if (slide.headingText.trim()) {
           elements.push({
             type: ElementType.TEXT,
@@ -414,7 +428,6 @@ export function StoryWizard({
           });
         }
 
-        // Secondary Description
         if (slide.descriptionText.trim()) {
           elements.push({
             type: ElementType.TEXT,
@@ -430,7 +443,6 @@ export function StoryWizard({
           });
         }
 
-        // CTA Element
         if (slide.hasCta && slide.ctaLabel) {
           elements.push({
             type: ElementType.CTA,
@@ -487,7 +499,7 @@ export function StoryWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save story");
 
-      setSuccess("USA News Story saved and published successfully!");
+      setSuccess("Web Story saved and published successfully!");
       setTimeout(() => {
         router.push("/admin/stories");
         router.refresh();
@@ -499,19 +511,53 @@ export function StoryWizard({
     }
   };
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW 1: TEMPLATE GALLERY (FIRST STEP WHEN CREATING A STORY)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (viewMode === "gallery") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900">
+              Web Stories Creation Studio
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/admin/stories")}
+            className="px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+
+        <TemplateGallery onSelectTemplate={handleTemplateSelectedFromGallery} />
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW 2: STORY EDITOR (TAILORED SPECIFICALLY TO THE CHOSEN TEMPLATE)
+  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-wider text-red-600">
-              USA Newsroom · Story Studio
-            </span>
+            <button
+              type="button"
+              onClick={() => setViewMode("gallery")}
+              className="text-xs font-black uppercase tracking-wider text-red-600 hover:underline flex items-center gap-1"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>← Change Story Template ({activeLayout.name})</span>
+            </button>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-            {initialStory ? "Edit USA News Story" : "Create USA News Web Story"}
+            {initialStory ? "Edit Web Story" : "Web Story Studio"}
           </h1>
         </div>
 
@@ -534,18 +580,17 @@ export function StoryWizard({
             ) : (
               <Send className="w-4 h-4" />
             )}
-            <span>{status === StoryStatus.PUBLISHED ? "Publish Live Story" : "Save Draft"}</span>
+            <span>{status === StoryStatus.PUBLISHED ? "Publish Story" : "Save Draft"}</span>
           </button>
         </div>
       </div>
 
-      {/* Wizard Step Tabs */}
+      {/* Editor Navigation Tabs */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm flex items-center gap-1 overflow-x-auto hide-scrollbar">
         {[
-          { step: 1, label: "1. Choose Template & Info", icon: LayoutGrid },
-          { step: 2, label: `2. Slide Content (${slides.length})`, icon: Layers },
-          { step: 3, label: "3. Google SEO Audit", icon: CheckCircle2 },
-          { step: 4, label: "4. Publish & Schedule", icon: Send },
+          { step: 1, label: `1. Story & Slides Content (${slides.length})`, icon: Layers },
+          { step: 2, label: "2. Google Discover SEO Audit", icon: CheckCircle2 },
+          { step: 3, label: "3. Publish & Schedule", icon: Send },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeStep === tab.step;
@@ -553,7 +598,7 @@ export function StoryWizard({
             <button
               key={tab.step}
               onClick={() => setActiveStep(tab.step as any)}
-              className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 min-w-[180px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
                 isActive
                   ? "bg-slate-950 text-white shadow-md"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -584,130 +629,45 @@ export function StoryWizard({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* ─── LEFT COLUMN: Inputs (7 cols) ─────────────────────────────────── */}
         <div className="lg:col-span-7 space-y-6">
-          {/* ═══════════ STEP 1: Choose Story Template & Meta ═══════════ */}
+          {/* ═══════════ STEP 1: Story Details + Slide Content Builder ═══════════ */}
           {activeStep === 1 && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
-              {/* Upfront Visual Template Selection */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                    <LayoutGrid className="w-5 h-5 text-red-600" />
-                    Step 1: Choose Story Template Style
+            <div className="space-y-6">
+              {/* Primary Story Metadata Accordion */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-red-600" />
+                    Story Details & Publishing Metadata
                   </h2>
-                  <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
-                    Active: {activeLayout.name}
+                  <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                    {activeLayout.name}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mb-4">
-                  Select the editorial design layout for this story. All slides will consistently follow this template style.
-                </p>
 
-                {/* 6 USA News Template Cards Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {SLIDE_LAYOUTS.slice(0, 6).map((template) => {
-                    const isSelected = selectedTemplate === template.id;
-                    return (
-                      <div
-                        key={template.id}
-                        onClick={() => handleSelectStoryTemplate(template.id)}
-                        className={`cursor-pointer rounded-2xl border-2 p-3 transition-all flex flex-col justify-between ${
-                          isSelected
-                            ? "border-red-600 bg-red-50/40 shadow-md ring-2 ring-red-500/30 scale-[1.02]"
-                            : "border-slate-200 bg-slate-50/60 hover:border-slate-300 hover:bg-white"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[9px] font-black uppercase text-red-600">
-                            {template.category}
-                          </span>
-                          {isSelected && (
-                            <span className="w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px] font-black">
-                              ✓
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="font-black text-xs text-slate-900 leading-snug">
-                          {template.name}
-                        </h3>
-                        <p className="text-[10px] text-slate-500 mt-1 line-clamp-2 leading-tight">
-                          {template.description}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Story Details Header */}
-              <div className="pt-4 border-t border-slate-100 space-y-4">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  Story Headline & Information
-                </h3>
-
-                {/* Title */}
+                {/* Headline */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Main Story Headline <span className="text-red-500">*</span>
-                    </label>
-                    <span
-                      className={`text-[11px] font-bold ${
-                        title.length >= 30 && title.length <= 70
-                          ? "text-emerald-600"
-                          : "text-amber-600"
-                      }`}
-                    >
-                      {title.length}/70 chars (Optimal: 40-70)
-                    </span>
-                  </div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Main Story Headline <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Massive Wildfire Hits California as Firefighters Battle Blaze"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
 
-                {/* Slug */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      URL Slug
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setAutoSlug(!autoSlug)}
-                      className="text-[11px] font-bold text-red-600 hover:underline"
-                    >
-                      {autoSlug ? "Locked to Title" : "Custom Slug"}
-                    </button>
-                  </div>
-                  <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                    <span className="text-xs text-slate-400 font-mono">/story/</span>
-                    <input
-                      type="text"
-                      value={slug}
-                      onChange={(e) => {
-                        setAutoSlug(false);
-                        setSlug(slugify(e.target.value));
-                      }}
-                      className="w-full bg-transparent text-xs font-mono font-bold text-slate-800 focus:outline-none ml-1"
-                    />
-                  </div>
-                </div>
-
-                {/* Category & Author */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Category, Author, Cover Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      News Desk / Category <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Category
                     </label>
                     <select
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
                     >
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -718,13 +678,13 @@ export function StoryWizard({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Bylined Reporter / Editor <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Author / Reporter
                     </label>
                     <select
                       value={authorId}
                       onChange={(e) => setAuthorId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
                     >
                       {authors.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -733,23 +693,11 @@ export function StoryWizard({
                       ))}
                     </select>
                   </div>
-                </div>
 
-                {/* Cover Poster Image */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Lead Photojournalism Image (9:16 Portrait) <span className="text-red-500">*</span>
-                  </label>
-
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="text"
-                      value={coverImage}
-                      onChange={(e) => setCoverImage(e.target.value)}
-                      placeholder="https://images.unsplash.com/... or browse PC"
-                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Cover Image (9:16)
+                    </label>
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -761,366 +709,296 @@ export function StoryWizard({
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+                      className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
                     >
                       <Upload className="w-3.5 h-3.5" />
                       <span>{uploading ? "Uploading..." : "Browse PC"}</span>
                     </button>
                   </div>
+                </div>
+              </div>
 
-                  {coverImage && (
-                    <div className="mt-3 flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-200">
-                      <div className="relative w-12 h-16 rounded-lg overflow-hidden bg-slate-200 flex-shrink-0">
-                        <Image src={coverImage} alt="Cover Preview" fill className="object-cover" />
-                      </div>
-                      <div className="min-w-0 flex-1 text-xs">
-                        <p className="font-bold text-slate-800 truncate">Lead Photojournalism Image Selected</p>
-                        <p className="text-[11px] text-slate-500 truncate">{coverImage}</p>
+              {/* Slide Builder Card */}
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
+                {/* Slide Timeline Rail */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-red-600" />
+                      Story Pages Timeline ({slides.length})
+                    </h3>
+
+                    {/* Add Slide button */}
+                    <button
+                      type="button"
+                      onClick={handleAddSlideInChosenTemplate}
+                      className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Slide</span>
+                    </button>
+                  </div>
+
+                  {/* Horizontal Slide Rail */}
+                  <div className="flex items-center gap-2.5 overflow-x-auto hide-scrollbar pb-2">
+                    {slides.map((slide, index) => (
+                      <button
+                        key={slide.id}
+                        type="button"
+                        onClick={() => setActiveSlideIndex(index)}
+                        className={`relative flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden border-2 transition-all p-1.5 flex flex-col justify-between ${
+                          activeSlideIndex === index
+                            ? "border-red-600 ring-4 ring-red-500/20 shadow-md scale-105 bg-slate-950 text-white"
+                            : "border-slate-200 bg-slate-100 opacity-70 hover:opacity-100 text-slate-700"
+                        }`}
+                      >
+                        {slide.backgroundMedia ? (
+                          <Image
+                            src={slide.backgroundMedia}
+                            alt=""
+                            fill
+                            className="object-cover opacity-50"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-slate-900" />
+                        )}
+
+                        <div className="relative z-10 flex justify-between items-center w-full">
+                          <span className="w-5 h-5 rounded-full bg-black/70 text-white font-black text-[10px] flex items-center justify-center">
+                            #{index + 1}
+                          </span>
+                        </div>
+
+                        <div className="relative z-10 text-left bg-black/80 backdrop-blur-sm p-1.5 rounded-lg">
+                          <p className="text-[8px] font-black text-red-400 uppercase truncate">
+                            Slide #{index + 1}
+                          </p>
+                          <p className="text-[8px] font-bold text-white truncate">
+                            {slide.headingText || "Headline"}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active Slide Editing Inputs */}
+                <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                    <span className="font-black text-sm text-slate-900">
+                      Editing Slide #{activeSlideIndex + 1} ({activeLayout.name})
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => duplicateSlide(activeSlideIndex)}
+                        className="p-2 rounded-xl bg-white text-slate-600 hover:text-red-600 border border-slate-200 shadow-sm"
+                        title="Duplicate Slide"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+
+                      {slides.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => deleteSlide(activeSlideIndex)}
+                          className="p-2 rounded-xl bg-white text-red-500 hover:bg-red-50 border border-slate-200 shadow-sm"
+                          title="Delete Slide"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Badge Label */}
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                      Category / Status Badge
+                    </label>
+                    <input
+                      type="text"
+                      value={activeSlide.badgeText || ""}
+                      onChange={(e) => updateSlide(activeSlideIndex, { badgeText: e.target.value })}
+                      placeholder="e.g. BREAKING NEWS, U.S. NEWS, EXPLAINER"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black tracking-wider focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  {/* Main Headline */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Slide Headline
+                    </label>
+                    <input
+                      type="text"
+                      value={activeSlide.headingText}
+                      onChange={(e) => updateSlide(activeSlideIndex, { headingText: e.target.value })}
+                      placeholder="Enter short, punchy headline..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  {/* Subhead (for Entertainment) */}
+                  {selectedTemplate === "entertainment-magazine" && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Italic Editorial Subheading
+                      </label>
+                      <input
+                        type="text"
+                        value={activeSlide.subheadText || ""}
+                        onChange={(e) => updateSlide(activeSlideIndex, { subheadText: e.target.value })}
+                        placeholder="e.g. Stars in New Blockbuster Movie"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-pink-600 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Location & Dateline (for Breaking News & Live Update) */}
+                  {(selectedTemplate === "breaking-news" || selectedTemplate === "live-update") && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Location & Dateline
+                      </label>
+                      <input
+                        type="text"
+                        value={activeSlide.locationDate || ""}
+                        onChange={(e) => updateSlide(activeSlideIndex, { locationDate: e.target.value })}
+                        placeholder="e.g. JUNE 1, 2024 | CALIFORNIA, USA"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Supporting Description Paragraph */}
+                  {selectedTemplate !== "data-facts" && selectedTemplate !== "live-update" && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Supporting News Description
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={activeSlide.descriptionText}
+                        onChange={(e) => updateSlide(activeSlideIndex, { descriptionText: e.target.value })}
+                        placeholder="Add concise context, quotes, or takeaway..."
+                        className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Editorial Photo Uploader */}
+                  {selectedTemplate !== "data-facts" && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Editorial Photo (Local PC Browse or Web URL)
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={activeSlide.backgroundMedia}
+                          onChange={(e) => updateSlide(activeSlideIndex, { backgroundMedia: e.target.value })}
+                          placeholder="https://images.unsplash.com/... or browse PC"
+                          className="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                        />
+
+                        <input
+                          type="file"
+                          ref={slideFileInputRef}
+                          onChange={(e) => handleFileUpload(e, "slide")}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => slideFileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{uploading ? "Uploading..." : "Browse PC"}</span>
+                        </button>
                       </div>
                     </div>
                   )}
-                </div>
 
-                {/* Summary */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Executive Story Summary
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Key briefing of the event or report..."
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Topic Tags (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={tagsInput}
-                    onChange={(e) => setTagsInput(e.target.value)}
-                    placeholder="breaking, california, wildfire, climate"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(2)}
-                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
-                >
-                  <span>Build Slides in {activeLayout.name}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ═══════════ STEP 2: Slide Builder (Unified in Chosen Template) ═══════════ */}
-          {activeStep === 2 && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
-              {/* Template Indicator Bar */}
-              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-                  <span className="text-xs font-black text-red-950 uppercase tracking-wide">
-                    Story Template: {activeLayout.name}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(1)}
-                  className="text-xs font-black text-red-600 hover:underline"
-                >
-                  Switch Template
-                </button>
-              </div>
-
-              {/* Slide Timeline Rail with Direct "+ Add Slide" */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-red-600" />
-                    Story Pages ({slides.length})
-                  </h3>
-
-                  {/* Add Slide button directly appends a slide in this chosen template */}
-                  <button
-                    type="button"
-                    onClick={handleAddSlideInChosenTemplate}
-                    className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Slide</span>
-                  </button>
-                </div>
-
-                {/* Horizontal Slide Rail */}
-                <div className="flex items-center gap-2.5 overflow-x-auto hide-scrollbar pb-2">
-                  {slides.map((slide, index) => (
-                    <button
-                      key={slide.id}
-                      type="button"
-                      onClick={() => setActiveSlideIndex(index)}
-                      className={`relative flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden border-2 transition-all p-1.5 flex flex-col justify-between ${
-                        activeSlideIndex === index
-                          ? "border-red-600 ring-4 ring-red-500/20 shadow-md scale-105 bg-slate-950 text-white"
-                          : "border-slate-200 bg-slate-100 opacity-70 hover:opacity-100 text-slate-700"
-                      }`}
-                    >
-                      {slide.backgroundMedia ? (
-                        <Image
-                          src={slide.backgroundMedia}
-                          alt=""
-                          fill
-                          className="object-cover opacity-50"
+                  {/* Swipe CTA & Slide Duration */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <input
+                          type="checkbox"
+                          checked={activeSlide.hasCta}
+                          onChange={(e) => updateSlide(activeSlideIndex, { hasCta: e.target.checked })}
+                          className="rounded text-red-600 focus:ring-red-500 w-4 h-4"
                         />
-                      ) : (
-                        <div className="w-full h-full bg-slate-900" />
-                      )}
-
-                      <div className="relative z-10 flex justify-between items-center w-full">
-                        <span className="w-5 h-5 rounded-full bg-black/70 text-white font-black text-[10px] flex items-center justify-center">
-                          #{index + 1}
+                        <span className="text-xs font-bold text-slate-800">
+                          Include "Swipe Up" CTA Button
                         </span>
-                      </div>
+                      </label>
 
-                      <div className="relative z-10 text-left bg-black/80 backdrop-blur-sm p-1.5 rounded-lg">
-                        <p className="text-[8px] font-black text-red-400 uppercase truncate">
-                          Slide #{index + 1}
-                        </p>
-                        <p className="text-[8px] font-bold text-white truncate">
-                          {slide.headingText || "Headline"}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      {activeSlide.hasCta && (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={activeSlide.ctaLabel}
+                            onChange={(e) => updateSlide(activeSlideIndex, { ctaLabel: e.target.value })}
+                            placeholder="CTA Label (e.g. Swipe Up for Details)"
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
+                          />
+                          <input
+                            type="text"
+                            value={activeSlide.ctaUrl}
+                            onChange={(e) => updateSlide(activeSlideIndex, { ctaUrl: e.target.value })}
+                            placeholder="Target URL (e.g. /stories or https://...)"
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
 
-              {/* Active Slide Editing Card */}
-              <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
-                  <span className="font-black text-sm text-slate-900">
-                    Editing Slide #{activeSlideIndex + 1} ({activeLayout.name})
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => duplicateSlide(activeSlideIndex)}
-                      className="p-2 rounded-xl bg-white text-slate-600 hover:text-red-600 border border-slate-200 shadow-sm"
-                      title="Duplicate Slide"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-
-                    {slides.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => deleteSlide(activeSlideIndex)}
-                        className="p-2 rounded-xl bg-white text-red-500 hover:bg-red-50 border border-slate-200 shadow-sm"
-                        title="Delete Slide"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Badge Label */}
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                    Category / Status Badge
-                  </label>
-                  <input
-                    type="text"
-                    value={activeSlide.badgeText || ""}
-                    onChange={(e) => updateSlide(activeSlideIndex, { badgeText: e.target.value })}
-                    placeholder="e.g. BREAKING NEWS, U.S. NEWS, EXPLAINER"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black tracking-wider focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-
-                {/* Main Headline */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Slide Headline
-                  </label>
-                  <input
-                    type="text"
-                    value={activeSlide.headingText}
-                    onChange={(e) => updateSlide(activeSlideIndex, { headingText: e.target.value })}
-                    placeholder="Enter short, punchy headline..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-black focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-
-                {/* Subhead (for Entertainment) */}
-                {selectedTemplate === "entertainment-magazine" && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Italic Editorial Subheading
-                    </label>
-                    <input
-                      type="text"
-                      value={activeSlide.subheadText || ""}
-                      onChange={(e) => updateSlide(activeSlideIndex, { subheadText: e.target.value })}
-                      placeholder="e.g. Stars in New Blockbuster Movie"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-pink-600 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                  </div>
-                )}
-
-                {/* Location & Dateline (for Breaking News & Live Update) */}
-                {(selectedTemplate === "breaking-news" || selectedTemplate === "live-update") && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Location & Dateline
-                    </label>
-                    <input
-                      type="text"
-                      value={activeSlide.locationDate || ""}
-                      onChange={(e) => updateSlide(activeSlideIndex, { locationDate: e.target.value })}
-                      placeholder="e.g. JUNE 1, 2024 | CALIFORNIA, USA"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
-                )}
-
-                {/* Supporting Description Paragraph */}
-                {selectedTemplate !== "data-facts" && selectedTemplate !== "live-update" && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Supporting News Description
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={activeSlide.descriptionText}
-                      onChange={(e) => updateSlide(activeSlideIndex, { descriptionText: e.target.value })}
-                      placeholder="Add concise context, quotes, or takeaway..."
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
-                )}
-
-                {/* Editorial Photo Uploader */}
-                {selectedTemplate !== "data-facts" && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Editorial Photo (Local PC Browse or Web URL)
-                    </label>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Slide Auto-Duration: {activeSlide.duration}s
+                      </label>
                       <input
-                        type="text"
-                        value={activeSlide.backgroundMedia}
-                        onChange={(e) => updateSlide(activeSlideIndex, { backgroundMedia: e.target.value })}
-                        placeholder="https://images.unsplash.com/... or browse PC"
-                        className="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                        type="range"
+                        min={4}
+                        max={15}
+                        value={activeSlide.duration}
+                        onChange={(e) => updateSlide(activeSlideIndex, { duration: Number(e.target.value) })}
+                        className="w-full accent-red-600"
                       />
-
-                      <input
-                        type="file"
-                        ref={slideFileInputRef}
-                        onChange={(e) => handleFileUpload(e, "slide")}
-                        accept="image/*"
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => slideFileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{uploading ? "Uploading..." : "Browse PC"}</span>
-                      </button>
                     </div>
                   </div>
-                )}
-
-                {/* Swipe CTA & Slide Duration */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <label className="flex items-center gap-2 cursor-pointer mb-2">
-                      <input
-                        type="checkbox"
-                        checked={activeSlide.hasCta}
-                        onChange={(e) => updateSlide(activeSlideIndex, { hasCta: e.target.checked })}
-                        className="rounded text-red-600 focus:ring-red-500 w-4 h-4"
-                      />
-                      <span className="text-xs font-bold text-slate-800">
-                        Include "Swipe Up" CTA Button
-                      </span>
-                    </label>
-
-                    {activeSlide.hasCta && (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={activeSlide.ctaLabel}
-                          onChange={(e) => updateSlide(activeSlideIndex, { ctaLabel: e.target.value })}
-                          placeholder="CTA Label (e.g. Swipe Up for Details)"
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
-                        />
-                        <input
-                          type="text"
-                          value={activeSlide.ctaUrl}
-                          onChange={(e) => updateSlide(activeSlideIndex, { ctaUrl: e.target.value })}
-                          placeholder="Target URL (e.g. /stories or https://...)"
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Slide Auto-Duration: {activeSlide.duration}s
-                    </label>
-                    <input
-                      type="range"
-                      min={4}
-                      max={15}
-                      value={activeSlide.duration}
-                      onChange={(e) => updateSlide(activeSlideIndex, { duration: Number(e.target.value) })}
-                      className="w-full accent-red-600"
-                    />
-                  </div>
                 </div>
-              </div>
 
-              {/* Navigation buttons */}
-              <div className="flex justify-between items-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(1)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Template & Story Info</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(3)}
-                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
-                >
-                  <span>Google SEO Audit</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                {/* Navigation buttons */}
+                <div className="flex justify-between items-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("gallery")}
+                    className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Choose Template</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveStep(2)}
+                    className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
+                  >
+                    <span>Google SEO Audit</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ═══════════ STEP 3: Google SEO Audit ═══════════ */}
-          {activeStep === 3 && (
+          {/* ═══════════ STEP 2: Google SEO Audit ═══════════ */}
+          {activeStep === 2 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1193,7 +1071,7 @@ export function StoryWizard({
               <div className="flex justify-between items-center pt-2">
                 <button
                   type="button"
-                  onClick={() => setActiveStep(2)}
+                  onClick={() => setActiveStep(1)}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1201,7 +1079,7 @@ export function StoryWizard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveStep(4)}
+                  onClick={() => setActiveStep(3)}
                   className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
                 >
                   <span>Publish & Schedule</span>
@@ -1211,8 +1089,8 @@ export function StoryWizard({
             </div>
           )}
 
-          {/* ═══════════ STEP 4: Publish & Schedule ═══════════ */}
-          {activeStep === 4 && (
+          {/* ═══════════ STEP 3: Publish & Schedule ═══════════ */}
+          {activeStep === 3 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <Send className="w-5 h-5 text-red-600" />
@@ -1292,7 +1170,7 @@ export function StoryWizard({
               <div className="pt-4 flex justify-between items-center border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setActiveStep(3)}
+                  onClick={() => setActiveStep(2)}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1312,7 +1190,7 @@ export function StoryWizard({
                   )}
                   <span>
                     {status === StoryStatus.PUBLISHED
-                      ? "Publish USA News Story Live"
+                      ? "Publish Story Live"
                       : "Save Story"}
                   </span>
                 </button>
@@ -1321,7 +1199,7 @@ export function StoryWizard({
           )}
         </div>
 
-        {/* ─── RIGHT COLUMN: Live 9:16 USA News Canvas Preview (5 cols) ──────── */}
+        {/* ─── RIGHT COLUMN: Live 9:16 Canvas Preview (5 cols) ───────────────── */}
         <div className="lg:col-span-5 flex flex-col items-center">
           <div className="sticky top-20 w-full max-w-[340px] space-y-3">
             <div className="flex items-center justify-between px-2">

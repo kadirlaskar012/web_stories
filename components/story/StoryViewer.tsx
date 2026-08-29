@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Share2,
   Pause,
+  Play,
   ExternalLink,
   ArrowRight,
   Users,
@@ -15,6 +16,8 @@ import {
   DollarSign,
   Briefcase,
   ChevronUp,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { SlideLayoutType, DataFactItem, TimelineItem } from "@/lib/themes/layouts";
 
@@ -39,13 +42,16 @@ export function StoryViewer({
 }: StoryViewerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isHolding, setIsHolding] = useState(false);
   const [progress, setProgress] = useState(0);
   const [copied, setCopied] = useState(false);
+
   const progressRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const rafRef = useRef<number>(0);
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
+  const holdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const page = pages[currentPage];
@@ -55,6 +61,8 @@ export function StoryViewer({
     if (currentPage < pages.length - 1) {
       setCurrentPage((p) => p + 1);
       setProgress(0);
+    } else {
+      setIsPaused(true);
     }
   }, [currentPage, pages.length]);
 
@@ -65,9 +73,9 @@ export function StoryViewer({
     }
   }, [currentPage]);
 
-  // Auto-progression
+  // Google Web Stories Auto-Progression Engine
   useEffect(() => {
-    if (isPaused) {
+    if (isPaused || isHolding) {
       cancelAnimationFrame(rafRef.current);
       return;
     }
@@ -95,15 +103,15 @@ export function StoryViewer({
     rafRef.current = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(rafRef.current);
-  }, [currentPage, isPaused, duration, goNext, pages.length]);
+  }, [currentPage, isPaused, isHolding, duration, goNext, pages.length]);
 
-  // Reset progress when page changes
+  // Reset progress when page index changes
   useEffect(() => {
     progressRef.current = 0;
     setProgress(0);
   }, [currentPage]);
 
-  // Keyboard navigation
+  // Keyboard navigation shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === "ArrowDown") goNext();
@@ -118,7 +126,57 @@ export function StoryViewer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [goNext, goPrev, onClose]);
 
-  // Tap handling
+  // Handle Touch Start (detects hold vs tap & registers swipe start coords)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+
+    // Trigger hold pause after 200ms of pressing
+    holdTimeoutRef.current = setTimeout(() => {
+      setIsHolding(true);
+    }, 200);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+
+    if (isHolding) {
+      setIsHolding(false);
+      return;
+    }
+
+    // Swipe down to close
+    if (diffY > 90 && Math.abs(diffX) < 60) {
+      onClose?.();
+      return;
+    }
+
+    // Horizontal swipe
+    if (Math.abs(diffX) > 45) {
+      if (diffX < 0) goNext();
+      else goPrev();
+      return;
+    }
+
+    // Tap Left 30% or Right 70%
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const x = e.changedTouches[0].clientX - rect.left;
+      if (x < rect.width * 0.3) {
+        goPrev();
+      } else {
+        goNext();
+      }
+    }
+  };
+
+  // Mouse click tap handler for Desktop
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -131,26 +189,19 @@ export function StoryViewer({
     }
   };
 
-  // Touch gestures for swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
+  const handleMouseDown = () => {
+    holdTimeoutRef.current = setTimeout(() => {
+      setIsHolding(true);
+    }, 200);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    const diffY = e.changedTouches[0].clientY - touchStartY.current;
-
-    // Swipe down to close
-    if (diffY > 80 && Math.abs(diffX) < 50) {
-      onClose?.();
-      return;
+  const handleMouseUp = () => {
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
     }
-
-    // Horizontal swipe
-    if (Math.abs(diffX) > 40) {
-      if (diffX < 0) goNext();
-      else goPrev();
+    if (isHolding) {
+      setIsHolding(false);
     }
   };
 
@@ -206,16 +257,15 @@ export function StoryViewer({
 
   return (
     <div
-      ref={containerRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-2xl select-none"
       role="region"
-      aria-label="USA News Web Story Viewer"
+      aria-label="Google Web Story Player"
     >
-      {/* Desktop chevrons */}
+      {/* Desktop Left/Right Navigation Controls */}
       {currentPage > 0 && (
         <button
           onClick={goPrev}
-          className="hidden md:flex absolute left-8 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/20 transition-all shadow-2xl hover:scale-110"
+          className="hidden md:flex absolute left-8 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/25 transition-all shadow-2xl hover:scale-110"
           aria-label="Previous slide"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -225,7 +275,7 @@ export function StoryViewer({
       {currentPage < pages.length - 1 && (
         <button
           onClick={goNext}
-          className="hidden md:flex absolute right-8 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/20 transition-all shadow-2xl hover:scale-110"
+          className="hidden md:flex absolute right-8 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/25 transition-all shadow-2xl hover:scale-110"
           aria-label="Next slide"
         >
           <ChevronRight className="w-6 h-6" />
@@ -234,6 +284,7 @@ export function StoryViewer({
 
       {/* Story 9:16 Canvas */}
       <div
+        ref={containerRef}
         className="story-canvas relative z-20 overflow-hidden rounded-[32px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] border border-white/10"
         style={{
           width: "min(100vw, calc(100vh * 9 / 16))",
@@ -241,11 +292,13 @@ export function StoryViewer({
           maxHeight: "92vh",
         }}
         onClick={handleCanvasClick}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         aria-label={`Slide ${currentPage + 1} of ${pages.length}`}
       >
-        {/* Base Background */}
+        {/* Base Dynamic Background */}
         <div
           className="absolute inset-0 transition-colors duration-500"
           style={{ backgroundColor: isLightExplainer ? "#f7f4ed" : layoutType === "data-facts" ? "#070d1d" : bgColor }}
@@ -265,7 +318,7 @@ export function StoryViewer({
                 <span className="px-2.5 py-1 rounded bg-red-600 font-black text-xs tracking-wider text-white shadow">
                   {publisherName}
                 </span>
-                <span className="text-xs text-white/80 font-medium">2h ago</span>
+                <span className="text-xs text-white/80 font-medium">Live Dispatch</span>
               </div>
             </div>
 
@@ -480,8 +533,13 @@ export function StoryViewer({
                 {descriptionText}
               </p>
               <div
-                className="w-full py-3.5 px-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm shadow-2xl flex items-center justify-center gap-2 transition-transform hover:scale-105"
-                onClick={(e) => e.stopPropagation()}
+                className="w-full py-3.5 px-6 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm shadow-2xl flex items-center justify-center gap-2 transition-transform hover:scale-105 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (ctaElement && (ctaElement.content as any)?.url) {
+                    window.location.href = (ctaElement.content as any).url;
+                  }
+                }}
               >
                 <span>{ctaElement ? (ctaElement.content as any)?.label : "SWIPE UP FOR DETAILS"}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -529,8 +587,8 @@ export function StoryViewer({
           </div>
         )}
 
-        {/* Top Progress Bars */}
-        <div className="absolute top-0 inset-x-0 z-30 flex gap-1.5 p-3.5">
+        {/* Google Web Stories Segmented Progress Bar Rail */}
+        <div className="absolute top-0 inset-x-0 z-30 flex gap-1.5 p-3.5 pointer-events-none">
           {pages.map((_, i) => (
             <div key={i} className="story-progress-bar flex-1" aria-hidden="true">
               <div
@@ -544,7 +602,7 @@ export function StoryViewer({
           ))}
         </div>
 
-        {/* Top Header Information */}
+        {/* Top Header Information & Controls */}
         <div className="absolute top-7 inset-x-0 z-30 flex items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <div
@@ -593,8 +651,8 @@ export function StoryViewer({
           </div>
         </div>
 
-        {/* Pause Indicator */}
-        {isPaused && (
+        {/* Pause/Hold Indicator */}
+        {(isPaused || isHolding) && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-2xl animate-fade-in">
               <Pause className="w-6 h-6 fill-white" />
