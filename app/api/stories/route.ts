@@ -4,24 +4,6 @@ import { requireSession } from "@/lib/auth/session";
 import { StoryStatus } from "@prisma/client";
 import { generateUniqueSlug } from "@/lib/slugify";
 import { absoluteUrl } from "@/lib/utils";
-import { z } from "zod";
-
-const storySchema = z.object({
-  title: z.string().min(1, "Title is required").max(200),
-  description: z.string().optional(),
-  excerpt: z.string().optional(),
-  coverImage: z.string().optional(),
-  categoryId: z.string().min(1, "Category is required"),
-  authorId: z.string().min(1, "Author is required"),
-  status: z.nativeEnum(StoryStatus).optional().default(StoryStatus.DRAFT),
-  seoTitle: z.string().optional(),
-  seoDescription: z.string().optional(),
-  socialImage: z.string().optional(),
-  robotsMeta: z.string().optional(),
-  isFeatured: z.boolean().optional().default(false),
-  scheduledAt: z.string().datetime().optional().nullable(),
-  tagIds: z.array(z.string()).optional(),
-});
 
 export async function GET(req: NextRequest) {
   const session = await requireSession().catch(() => null);
@@ -33,12 +15,12 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") || "";
   const limit = Math.min(50, Number(searchParams.get("limit")) || 20);
 
-  const where = {
+  const where: any = {
     ...(status && { status }),
     ...(search && {
       OR: [
-        { title: { contains: search, mode: "insensitive" as const } },
-        { description: { contains: search, mode: "insensitive" as const } },
+        { title: { contains: search } },
+        { description: { contains: search } },
       ],
     }),
   };
@@ -53,8 +35,8 @@ export async function GET(req: NextRequest) {
       orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-    }),
-    prisma.story.count({ where }),
+    }).catch(() => []),
+    prisma.story.count({ where }).catch(() => 0),
   ]);
 
   return NextResponse.json({ stories, total, page, pages: Math.ceil(total / limit) });
@@ -66,34 +48,104 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const parsed = storySchema.safeParse(body);
+    const {
+      title,
+      slug: customSlug,
+      description,
+      excerpt,
+      coverImage,
+      categoryId,
+      authorId,
+      status = StoryStatus.DRAFT,
+      isFeatured = false,
+      scheduledAt,
+      tags = [],
+      pages = [],
+    } = body;
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues?.[0]?.message || "Validation failed" },
-        { status: 400 }
-      );
+    if (!title || !title.trim()) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+    if (!categoryId) {
+      return NextResponse.json({ error: "Category is required" }, { status: 400 });
+    }
+    if (!authorId) {
+      return NextResponse.json({ error: "Author is required" }, { status: 400 });
     }
 
-    const { tagIds, scheduledAt, ...data } = parsed.data;
-
-    const slug = await generateUniqueSlug(data.title, "story");
+    const slug = customSlug
+      ? await generateUniqueSlug(customSlug, "story")
+      : await generateUniqueSlug(title, "story");
     const canonicalUrl = absoluteUrl(`/story/${slug}`);
 
     const story = await prisma.story.create({
       data: {
-        ...data,
+        title,
         slug,
+        description,
+        excerpt: excerpt || description?.slice(0, 120),
+        coverImage,
+        categoryId,
+        authorId,
+        isFeatured,
+        status,
         canonicalUrl,
         userId: session.userId,
+        publishedAt: status === StoryStatus.PUBLISHED ? new Date() : null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-        tags: tagIds?.length
-          ? {
-              create: tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })),
-            }
-          : undefined,
       },
     });
+
+    // Handle Tags
+    if (Array.isArray(tags) && tags.length > 0) {
+      for (const tagName of tags) {
+        const cleanName = tagName.trim();
+        if (!cleanName) continue;
+        const tagSlug = cleanName.toLowerCase().replace(/\s+/g, "-");
+        const tag = await prisma.tag.upsert({
+          where: { slug: tagSlug },
+          update: {},
+          create: { name: cleanName, slug: tagSlug },
+        });
+
+        await prisma.storyTag.create({
+          data: {
+            storyId: story.id,
+            tagId: tag.id,
+          },
+        }).catch(() => {});
+      }
+    }
+
+    // Handle Pages & Elements
+    if (Array.isArray(pages) && pages.length > 0) {
+      for (const p of pages) {
+        const page = await prisma.storyPage.create({
+          data: {
+            storyId: story.id,
+            order: p.order ?? 0,
+            background: p.background || "#0f172a",
+            duration: p.duration || 7,
+          },
+        });
+
+        if (Array.isArray(p.elements) && p.elements.length > 0) {
+          for (const el of p.elements) {
+            await prisma.storyElement.create({
+              data: {
+                pageId: page.id,
+                type: el.type,
+                content: el.content || {},
+                position: el.position || { x: 0, y: 0 },
+                size: el.size || { width: 100, height: 100 },
+                style: el.style || {},
+                order: el.order ?? 0,
+              },
+            });
+          }
+        }
+      }
+    }
 
     await prisma.activityLog.create({
       data: {
@@ -105,8 +157,8 @@ export async function POST(req: NextRequest) {
     }).catch(() => {});
 
     return NextResponse.json(story, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[STORIES_POST]", err);
-    return NextResponse.json({ error: "Failed to create story" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to create story" }, { status: 500 });
   }
 }

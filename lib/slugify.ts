@@ -9,6 +9,8 @@ export function generateSlug(text: string): string {
   });
 }
 
+export const slugify = generateSlug;
+
 export async function generateUniqueSlug(
   text: string,
   model: 'story' | 'category' | 'tag' | 'author',

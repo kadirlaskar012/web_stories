@@ -68,14 +68,14 @@ export default async function AdminDashboard() {
         .catch(() => ({ _sum: { viewCount: 0 } })),
     ]);
 
-  const countMap = Object.fromEntries(
+  const countMap: Record<string, number> = Object.fromEntries(
     storyCounts.map((g: any) => [g.status, g._count?._all || 0])
   );
 
   const stats = [
     {
       label: "Total Stories",
-      value: Object.values(countMap).reduce((a, b) => a + b, 0),
+      value: (Object.values(countMap) as number[]).reduce((a, b) => a + b, 0),
       icon: BookOpen,
       color: "text-blue-600",
       bg: "bg-blue-50",

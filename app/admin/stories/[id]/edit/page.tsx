@@ -1,6 +1,6 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import StoryEditorClient from "@/components/editor/StoryEditorClient";
+import { StoryWizard } from "@/components/admin/StoryWizard";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function EditStoryPage({ params }: Props) {
   const { id } = await params;
 
-  const [story, categories, authors, tags] = await Promise.all([
+  const [story, categories, authors] = await Promise.all([
     prisma.story.findUnique({
       where: { id },
       include: {
@@ -23,20 +23,20 @@ export default async function EditStoryPage({ params }: Props) {
         author: true,
         category: true,
       },
-    }),
-    prisma.category.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true } }),
-    prisma.author.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    }).catch(() => null),
+    prisma.category.findMany({ orderBy: { order: "asc" } }).catch(() => []),
+    prisma.author.findMany({ orderBy: { name: "asc" } }).catch(() => []),
   ]);
 
   if (!story) notFound();
 
   return (
-    <StoryEditorClient
-      story={story}
-      categories={categories}
-      authors={authors}
-      allTags={tags}
-    />
+    <div className="max-w-7xl mx-auto">
+      <StoryWizard
+        categories={categories}
+        authors={authors}
+        initialStory={story}
+      />
+    </div>
   );
 }
