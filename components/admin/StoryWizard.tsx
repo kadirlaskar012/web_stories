@@ -3,14 +3,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Category, Author, StoryStatus, ElementType } from "@prisma/client";
-import { STORY_THEMES, StoryTheme, getThemeById } from "@/lib/themes/presets";
 import { SLIDE_LAYOUTS, SlideLayoutConfig, SlideLayoutType, getLayoutById } from "@/lib/themes/layouts";
 import { LayoutPickerModal } from "./LayoutPickerModal";
 import { slugify } from "@/lib/slugify";
 import {
-  Sparkles,
   Layers,
-  Palette,
   CheckCircle2,
   Send,
   Plus,
@@ -25,8 +22,6 @@ import {
   FileText,
   ExternalLink,
   LayoutGrid,
-  Quote,
-  Flame,
   ArrowRight,
   RefreshCw,
   Check,
@@ -48,7 +43,6 @@ export interface SlideData {
   hasCta: boolean;
   ctaLabel: string;
   ctaUrl: string;
-  themeId: string;
 }
 
 interface StoryWizardProps {
@@ -64,8 +58,8 @@ export function StoryWizard({
 }: StoryWizardProps) {
   const router = useRouter();
 
-  // Wizard Step: 1 = Story Info, 2 = Slide Builder, 3 = Themes, 4 = SEO Audit, 5 = Publish
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  // Wizard Step: 1 = Story Info, 2 = Slide Builder & Layouts, 3 = SEO Audit, 4 = Publish
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Layout Picker Modal state
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false);
@@ -114,7 +108,6 @@ export function StoryWizard({
           hasCta: !!ctaEl,
           ctaLabel: (ctaEl?.content as any)?.label || "Learn More",
           ctaUrl: (ctaEl?.content as any)?.url || "",
-          themeId: "editorial-luxe",
         };
       });
     }
@@ -132,7 +125,6 @@ export function StoryWizard({
         hasCta: false,
         ctaLabel: "Explore Guide",
         ctaUrl: "",
-        themeId: "editorial-luxe",
       },
       {
         id: "slide-1",
@@ -147,7 +139,6 @@ export function StoryWizard({
         hasCta: false,
         ctaLabel: "Read More",
         ctaUrl: "",
-        themeId: "editorial-luxe",
       },
       {
         id: "slide-2",
@@ -163,15 +154,13 @@ export function StoryWizard({
         hasCta: true,
         ctaLabel: "View Full Itinerary",
         ctaUrl: "/stories",
-        themeId: "editorial-luxe",
       },
     ];
   });
 
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-  const [globalThemeId, setGlobalThemeId] = useState("editorial-luxe");
 
-  // ─── Step 5: Publishing & Status ─────────────────────────────────────────
+  // ─── Step 4: Publishing & Status ─────────────────────────────────────────
   const [status, setStatus] = useState<StoryStatus>(
     initialStory?.status || StoryStatus.PUBLISHED
   );
@@ -196,7 +185,6 @@ export function StoryWizard({
   }, [title, autoSlug]);
 
   const activeSlide = slides[activeSlideIndex] || slides[0];
-  const activeTheme = getThemeById(activeSlide.themeId || globalThemeId);
   const activeLayout = getLayoutById(activeSlide.layoutType || "cover-hero");
 
   // Handle local file upload
@@ -263,7 +251,7 @@ export function StoryWizard({
         order: slides.length,
         layoutType: layout.id,
         backgroundMedia: activeSlide?.backgroundMedia || coverImage || "",
-        backgroundColor: activeTheme.styles.background,
+        backgroundColor: "#0c0d12",
         headingType: layout.defaultData.headingType,
         headingText: layout.defaultData.headingText,
         descriptionText: layout.defaultData.descriptionText,
@@ -274,12 +262,10 @@ export function StoryWizard({
         hasCta: layout.defaultData.hasCta || false,
         ctaLabel: layout.defaultData.ctaLabel || "Learn More",
         ctaUrl: layout.defaultData.ctaUrl || "",
-        themeId: globalThemeId,
       };
       setSlides((prev) => [...prev, newSlide]);
       setActiveSlideIndex(slides.length);
     } else {
-      // Change current slide layout
       updateSlide(activeSlideIndex, {
         layoutType: layout.id,
         headingType: layout.defaultData.headingType,
@@ -312,16 +298,6 @@ export function StoryWizard({
     setActiveSlideIndex(Math.max(0, index - 1));
   };
 
-  // Apply Theme
-  const applyGlobalTheme = (themeId: string) => {
-    setGlobalThemeId(themeId);
-    setSlides((prev) => prev.map((s) => ({ ...s, themeId })));
-  };
-
-  const applySlideTheme = (themeId: string) => {
-    updateSlide(activeSlideIndex, { themeId });
-  };
-
   // ─── Google Web Stories Quality Audit Calculations ─────────────────────────
   const titleScore = title.length >= 30 && title.length <= 70 ? 25 : title.length > 0 ? 15 : 0;
   const slideCountScore = slides.length >= 4 && slides.length <= 15 ? 25 : slides.length >= 2 ? 15 : 5;
@@ -347,7 +323,6 @@ export function StoryWizard({
 
     try {
       const pagesPayload = slides.map((slide, idx) => {
-        const theme = getThemeById(slide.themeId || globalThemeId);
         const elements: any[] = [];
 
         // Background Element with layout metadata
@@ -366,7 +341,7 @@ export function StoryWizard({
             },
             position: { x: 0, y: 0 },
             size: { width: 100, height: 100 },
-            style: { opacity: theme.styles.overlayOpacity },
+            style: { opacity: 0.9 },
             order: 0,
           });
         }
@@ -379,12 +354,11 @@ export function StoryWizard({
             position: { x: 8, y: slide.layoutType === "cover-hero" ? 60 : 15 },
             size: { width: 84, height: 25 },
             style: {
-              fontSize: theme.styles.heading.fontSize,
-              fontWeight: theme.styles.heading.fontWeight,
-              color: theme.styles.heading.color,
-              lineHeight: theme.styles.heading.lineHeight,
-              textShadow: theme.styles.heading.textShadow,
-              textTransform: theme.styles.heading.textTransform,
+              fontSize: 28,
+              fontWeight: 800,
+              color: "#ffffff",
+              lineHeight: 1.2,
+              textShadow: "0 4px 16px rgba(0,0,0,0.9)",
             },
             order: 1,
           });
@@ -398,11 +372,11 @@ export function StoryWizard({
             position: { x: 8, y: slide.layoutType === "cover-hero" ? 78 : 68 },
             size: { width: 84, height: 25 },
             style: {
-              fontSize: theme.styles.body.fontSize,
-              fontWeight: theme.styles.body.fontWeight,
-              color: theme.styles.body.color,
-              lineHeight: theme.styles.body.lineHeight,
-              textShadow: theme.styles.body.textShadow,
+              fontSize: 15,
+              fontWeight: 400,
+              color: "#f1f5f9",
+              lineHeight: 1.55,
+              textShadow: "0 2px 8px rgba(0,0,0,0.8)",
             },
             order: 2,
           });
@@ -416,9 +390,9 @@ export function StoryWizard({
             position: { x: 15, y: 88 },
             size: { width: 70, height: 8 },
             style: {
-              backgroundColor: theme.styles.cta.bg,
-              color: theme.styles.cta.color,
-              borderRadius: theme.styles.cta.borderRadius,
+              backgroundColor: "#2563eb",
+              color: "#ffffff",
+              borderRadius: 9999,
             },
             order: 3,
           });
@@ -426,7 +400,7 @@ export function StoryWizard({
 
         return {
           order: idx,
-          background: theme.styles.background,
+          background: "#0c0d12",
           duration: slide.duration,
           elements,
         };
@@ -465,7 +439,7 @@ export function StoryWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save story");
 
-      setSuccess("Story published and saved successfully!");
+      setSuccess("Story saved and published successfully!");
       setTimeout(() => {
         router.push("/admin/stories");
         router.refresh();
@@ -530,14 +504,13 @@ export function StoryWizard({
         </div>
       </div>
 
-      {/* Wizard Step Tabs */}
+      {/* Wizard Step Tabs (Streamlined 4 Steps) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm flex items-center gap-1 overflow-x-auto hide-scrollbar">
         {[
-          { step: 1, label: "1. Story & SEO", icon: FileText },
+          { step: 1, label: "1. Story Details & SEO", icon: FileText },
           { step: 2, label: "2. Slide Builder & Layouts", icon: Layers },
-          { step: 3, label: "3. Pre-made Themes", icon: Palette },
-          { step: 4, label: "4. Google SEO Audit", icon: CheckCircle2 },
-          { step: 5, label: "5. Publish & Schedule", icon: Send },
+          { step: 3, label: "3. Google SEO Audit", icon: CheckCircle2 },
+          { step: 4, label: "4. Publish & Schedule", icon: Send },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeStep === tab.step;
@@ -545,7 +518,7 @@ export function StoryWizard({
             <button
               key={tab.step}
               onClick={() => setActiveStep(tab.step as any)}
-              className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
                 isActive
                   ? "bg-slate-900 text-white shadow-md"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -1086,104 +1059,6 @@ export function StoryWizard({
                   onClick={() => setActiveStep(3)}
                   className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
                 >
-                  <span>Select Color Themes</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ═══════════ STEP 3: Pre-Made Themes & Styles ═══════════ */}
-          {activeStep === 3 && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Palette className="w-5 h-5 text-purple-600" />
-                  <h2 className="text-lg font-black text-slate-900">
-                    Color Palette & Styling Theme
-                  </h2>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Choose a signature color and typography mood to pair with your design layouts.
-                </p>
-              </div>
-
-              {/* Themes Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {STORY_THEMES.map((theme) => {
-                  const isSelected = (activeSlide.themeId || globalThemeId) === theme.id;
-                  return (
-                    <div
-                      key={theme.id}
-                      className={`p-4 rounded-2xl border-2 transition-all flex flex-col justify-between ${
-                        isSelected
-                          ? "border-blue-600 bg-blue-50/40 shadow-md ring-2 ring-blue-400/30"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
-                      }`}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: theme.styles.badge.bg,
-                              color: theme.styles.badge.color,
-                            }}
-                          >
-                            {theme.badge}
-                          </span>
-                          {isSelected && (
-                            <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">
-                              ✓
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="font-extrabold text-sm text-slate-900">
-                          {theme.name}
-                        </h3>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          {theme.description}
-                        </p>
-                      </div>
-
-                      {/* Theme Action Buttons */}
-                      <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => applyGlobalTheme(theme.id)}
-                          className="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] transition-colors text-center"
-                        >
-                          Apply All Slides
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applySlideTheme(theme.id)}
-                          className="py-1.5 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] transition-colors text-center"
-                        >
-                          This Slide Only
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Navigation buttons */}
-              <div className="flex justify-between items-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(2)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Back to Slide Builder</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(4)}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
-                >
                   <span>Google SEO Audit</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1191,8 +1066,8 @@ export function StoryWizard({
             </div>
           )}
 
-          {/* ═══════════ STEP 4: Google Web Stories Quality Audit ═══════════ */}
-          {activeStep === 4 && (
+          {/* ═══════════ STEP 3: Google Web Stories Quality Audit ═══════════ */}
+          {activeStep === 3 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1267,15 +1142,15 @@ export function StoryWizard({
               <div className="flex justify-between items-center pt-2">
                 <button
                   type="button"
-                  onClick={() => setActiveStep(3)}
+                  onClick={() => setActiveStep(2)}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>Back to Themes</span>
+                  <span>Back to Slide Builder</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveStep(5)}
+                  onClick={() => setActiveStep(4)}
                   className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md flex items-center gap-2"
                 >
                   <span>Publish & Schedule</span>
@@ -1285,8 +1160,8 @@ export function StoryWizard({
             </div>
           )}
 
-          {/* ═══════════ STEP 5: Publish & Schedule ═══════════ */}
-          {activeStep === 5 && (
+          {/* ═══════════ STEP 4: Publish & Schedule ═══════════ */}
+          {activeStep === 4 && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm space-y-6">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <Send className="w-5 h-5 text-blue-600" />
@@ -1370,7 +1245,7 @@ export function StoryWizard({
               <div className="pt-4 flex justify-between items-center border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setActiveStep(4)}
+                  onClick={() => setActiveStep(3)}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1414,10 +1289,9 @@ export function StoryWizard({
 
             {/* Mobile Mockup Frame */}
             <div className="w-full aspect-[9/16] rounded-[32px] bg-slate-950 p-2.5 shadow-2xl border-4 border-slate-800 relative overflow-hidden">
-              {/* Dynamic Theme Background Canvas */}
               <div
                 className="w-full h-full rounded-[24px] overflow-hidden relative select-none flex flex-col justify-between"
-                style={{ backgroundColor: activeTheme.styles.background }}
+                style={{ backgroundColor: "#0c0d12" }}
               >
                 {/* ─── 1. LAYOUT: SPLIT HALF & HALF ─── */}
                 {activeSlide.layoutType === "split-half" ? (
@@ -1449,11 +1323,8 @@ export function StoryWizard({
                     {/* Bottom 50% Content Card */}
                     <div className="h-[52%] bg-slate-900 p-4 flex flex-col justify-between">
                       <div className="space-y-1.5">
-                        <span
-                          className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full w-fit inline-block"
-                          style={{ backgroundColor: activeTheme.styles.badge.bg, color: activeTheme.styles.badge.color }}
-                        >
-                          {activeTheme.badge}
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 w-fit inline-block">
+                          StoryFlow
                         </span>
                         <h3 className="font-bold text-sm text-white leading-snug line-clamp-2">
                           {activeSlide.headingText}
@@ -1464,14 +1335,7 @@ export function StoryWizard({
                       </div>
 
                       {activeSlide.hasCta && (
-                        <div
-                          className="py-2 px-3 text-center text-xs font-bold shadow-lg"
-                          style={{
-                            background: activeTheme.styles.cta.bg,
-                            color: activeTheme.styles.cta.color,
-                            borderRadius: `${activeTheme.styles.cta.borderRadius}px`,
-                          }}
-                        >
+                        <div className="py-2 px-3 text-center text-xs font-bold rounded-xl bg-blue-600 text-white shadow-lg">
                           {activeSlide.ctaLabel || "Learn More"}
                         </div>
                       )}
@@ -1495,8 +1359,7 @@ export function StoryWizard({
                       className="absolute inset-0 pointer-events-none"
                       style={{
                         background:
-                          activeTheme.styles.overlayGradient ||
-                          `linear-gradient(to top, rgba(0,0,0,${activeTheme.styles.overlayOpacity}) 0%, transparent 100%)`,
+                          "linear-gradient(to top, rgba(12, 13, 18, 0.95) 0%, rgba(12, 13, 18, 0.4) 50%, transparent 100%)",
                       }}
                     />
 
@@ -1511,14 +1374,11 @@ export function StoryWizard({
                       </div>
 
                       <div className="flex items-center justify-between pt-1">
-                        <span
-                          className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: activeTheme.styles.badge.bg, color: activeTheme.styles.badge.color }}
-                        >
-                          {activeTheme.badge}
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white">
+                          StoryFlow
                         </span>
                         <span className="text-[10px] font-bold text-white/80 drop-shadow">
-                          StoryFlow
+                          Web Story
                         </span>
                       </div>
                     </div>
@@ -1535,14 +1395,7 @@ export function StoryWizard({
                             {activeSlide.descriptionText}
                           </p>
                           {activeSlide.hasCta && (
-                            <div
-                              className="py-1.5 px-3 mt-2 text-center text-xs font-bold shadow-lg"
-                              style={{
-                                background: activeTheme.styles.cta.bg,
-                                color: activeTheme.styles.cta.color,
-                                borderRadius: `${activeTheme.styles.cta.borderRadius}px`,
-                              }}
-                            >
+                            <div className="py-1.5 px-3 mt-2 text-center text-xs font-bold rounded-xl bg-blue-600 text-white shadow-lg">
                               {activeSlide.ctaLabel || "Learn More"}
                             </div>
                           )}
@@ -1603,14 +1456,7 @@ export function StoryWizard({
                           <p className="text-[11px] text-slate-200 drop-shadow line-clamp-2">
                             {activeSlide.descriptionText}
                           </p>
-                          <div
-                            className="py-2.5 px-4 text-center text-xs font-bold shadow-2xl flex items-center justify-center gap-1.5"
-                            style={{
-                              background: activeTheme.styles.cta.bg,
-                              color: activeTheme.styles.cta.color,
-                              borderRadius: `${activeTheme.styles.cta.borderRadius}px`,
-                            }}
-                          >
+                          <div className="py-2.5 px-4 text-center text-xs font-bold rounded-full bg-blue-600 text-white shadow-2xl flex items-center justify-center gap-1.5">
                             <span>{activeSlide.ctaLabel || "Explore Full Story"}</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </div>
@@ -1620,26 +1466,10 @@ export function StoryWizard({
                       {/* 7. DEFAULT / COVER HERO */}
                       {activeSlide.layoutType === "cover-hero" && (
                         <div className="space-y-2">
-                          <h3
-                            style={{
-                              fontSize: "22px",
-                              fontWeight: activeTheme.styles.heading.fontWeight,
-                              color: activeTheme.styles.heading.color,
-                              lineHeight: 1.2,
-                              textShadow: "0 4px 16px rgba(0,0,0,0.9)",
-                            }}
-                          >
+                          <h3 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
                             {activeSlide.headingText}
                           </h3>
-                          <p
-                            className="line-clamp-3"
-                            style={{
-                              fontSize: "12px",
-                              color: activeTheme.styles.body.color,
-                              textShadow: "0 2px 8px rgba(0,0,0,0.9)",
-                              lineHeight: 1.45,
-                            }}
-                          >
+                          <p className="text-xs text-slate-200 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] line-clamp-3 leading-relaxed">
                             {activeSlide.descriptionText}
                           </p>
                         </div>
