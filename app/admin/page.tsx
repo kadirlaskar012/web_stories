@@ -17,44 +17,60 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [storyCounts, recentStories, topStories, recentActivity] =
+  const [storyCounts, recentStories, topStories, recentActivity, totalViews] =
     await Promise.all([
       // Story counts by status
-      prisma.story.groupBy({
-        by: ["status"],
-        _count: { _all: true },
-      }),
+      prisma.story
+        .groupBy({
+          by: ["status"],
+          _count: { _all: true },
+        })
+        .catch(() => []),
       // Recent stories
-      prisma.story.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-        include: {
-          author: { select: { name: true } },
-          category: { select: { name: true, color: true } },
-        },
-      }),
+      prisma.story
+        .findMany({
+          orderBy: { updatedAt: "desc" },
+          take: 5,
+          include: {
+            author: { select: { name: true } },
+            category: { select: { name: true, color: true } },
+          },
+        })
+        .catch(() => []),
       // Top stories by views
-      prisma.story.findMany({
-        where: { status: StoryStatus.PUBLISHED, viewCount: { gt: 0 } },
-        orderBy: { viewCount: "desc" },
-        take: 5,
-        select: { id: true, title: true, slug: true, viewCount: true, category: { select: { name: true } } },
-      }),
+      prisma.story
+        .findMany({
+          where: { status: StoryStatus.PUBLISHED, viewCount: { gt: 0 } },
+          orderBy: { viewCount: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            viewCount: true,
+            category: { select: { name: true } },
+          },
+        })
+        .catch(() => []),
       // Recent activity
-      prisma.activityLog.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 8,
-        include: { user: { select: { name: true } } },
-      }),
+      prisma.activityLog
+        .findMany({
+          orderBy: { createdAt: "desc" },
+          take: 8,
+          include: { user: { select: { name: true } } },
+        })
+        .catch(() => []),
+      // Total views
+      prisma.story
+        .aggregate({
+          _sum: { viewCount: true },
+        })
+        .catch(() => ({ _sum: { viewCount: 0 } })),
     ]);
 
   const countMap = Object.fromEntries(
-    storyCounts.map((g) => [g.status, g._count._all])
+    storyCounts.map((g: any) => [g.status, g._count?._all || 0])
   );
-
-  const totalViews = await prisma.story.aggregate({
-    _sum: { viewCount: true },
-  });
 
   const stats = [
     {
