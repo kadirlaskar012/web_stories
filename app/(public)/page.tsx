@@ -17,7 +17,7 @@ import {
   Layers,
 } from "lucide-react";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [featuredStories, trendingStories, latestStories, categories, authors, settings] =
@@ -305,36 +305,38 @@ export default async function HomePage() {
       )}
 
       {/* ─── Latest Stories Grid ─────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
-              <Compass className="w-5 h-5" />
+      {latestStories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                <Compass className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  Latest Visual Stories
+                </h2>
+                <p className="text-xs text-slate-500 font-medium">Fresh visual narratives published daily</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                Latest Visual Stories
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">Fresh visual narratives published daily</p>
-            </div>
+            <Link
+              href="/stories"
+              className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:gap-2 transition-all"
+            >
+              View Library <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <Link
-            href="/stories"
-            className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:gap-2 transition-all"
-          >
-            View Library <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
-          {latestStories.map((story) => (
-            <StoryCard key={story.id} story={story} />
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+            {latestStories.map((story) => (
+              <StoryCard key={story.id} story={story} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* ─── Creator / Storyteller Spotlight ───────────────────────────────── */}
-      {authors.length > 0 && (
+      {/* ─── Creator Spotlight (Only if multiple authors or customized) ───── */}
+      {authors.length > 1 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
@@ -391,41 +393,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      {/* ─── Newsletter Digest Section ─────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-16">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-8 sm:p-12 shadow-xl border border-white/10">
-          <div className="relative z-10 max-w-2xl space-y-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-              <Sparkles className="w-3.5 h-3.5" />
-              Daily Visual Digest
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Get the best visual stories delivered every morning
-            </h2>
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              Curated Web Stories on technology, global cultures, design trends, and breaking science. No spam, ever.
-            </p>
-            <form
-              action="#"
-              className="flex flex-col sm:flex-row gap-3 pt-2 max-w-md"
-            >
-              <input
-                type="email"
-                placeholder="Enter your email address"
-                className="px-4 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 backdrop-blur-sm"
-                required
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex-shrink-0"
-              >
-                Subscribe Free
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
