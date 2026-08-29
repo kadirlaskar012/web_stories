@@ -75,13 +75,33 @@ export default async function StoryPage({ params }: Props) {
 
   if (!story) notFound();
 
-  // Increment view count
-  prisma.story
-    .update({
-      where: { id: story.id },
-      data: { viewCount: { increment: 1 } },
+  // Find next published story in queue
+  const nextStory = await prisma.story
+    .findFirst({
+      where: {
+        status: StoryStatus.PUBLISHED,
+        id: { not: story.id },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        coverImage: true,
+        category: { select: { name: true } },
+      },
     })
-    .catch(() => {});
+    .catch(() => null);
+
+  const formattedNextStory = nextStory
+    ? {
+        id: nextStory.id,
+        slug: nextStory.slug,
+        title: nextStory.title,
+        coverImage: nextStory.coverImage,
+        categoryName: nextStory.category.name,
+      }
+    : null;
 
   // Related stories in same category
   const relatedStories = await prisma.story
@@ -142,12 +162,12 @@ export default async function StoryPage({ params }: Props) {
           </nav>
 
           <Link
-            href={`/api/stories/${story.id}/amp`}
+            href={`/story/${story.slug}/amp`}
             target="_blank"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/30 text-[11px] font-bold hover:bg-amber-400/20 transition-colors"
+            className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/30 text-[11px] font-bold hover:bg-amber-400/20 transition-colors shadow-sm"
           >
-            <Zap className="w-3 h-3 fill-amber-400" />
-            <span>AMP Story</span>
+            <Zap className="w-3.5 h-3.5 fill-amber-400" />
+            <span>Google AMP Story</span>
           </Link>
         </div>
       </div>
@@ -160,9 +180,11 @@ export default async function StoryPage({ params }: Props) {
             <div className="w-full max-w-[360px] sm:max-w-[380px] h-[640px] sm:h-[680px] rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative bg-black">
               <StoryViewerWrapper
                 pages={story.pages}
+                storyId={story.id}
                 title={story.title}
                 authorName={story.author.name}
                 publisherName={settings.publisher_name}
+                nextStory={formattedNextStory}
               />
             </div>
           </div>
@@ -253,15 +275,19 @@ export default async function StoryPage({ params }: Props) {
               </div>
             )}
 
-            {/* How to Interact Info Card */}
+            {/* Interactive Player Instructions */}
             <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/40 text-xs text-blue-200 space-y-1.5">
               <p className="font-bold flex items-center gap-1.5 text-blue-300">
                 <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                Interactive Viewer Tips
+                Google Web Stories Interaction Guide
               </p>
-              <p className="text-slate-300 leading-relaxed">
-                Tap on the <strong>right</strong> side of the story to advance, tap on the <strong>left</strong> to go back, or tap the <strong>center</strong> to pause. On desktop, you can also use your keyboard arrow keys (<kbd className="bg-slate-800 px-1 py-0.5 rounded text-white">←</kbd> / <kbd className="bg-slate-800 px-1 py-0.5 rounded text-white">→</kbd>).
-              </p>
+              <ul className="text-slate-300 space-y-1 pl-4 list-disc leading-relaxed">
+                <li>Tap <strong>Right</strong> side: Advance to next slide.</li>
+                <li>Tap <strong>Left</strong> side: Return to previous slide.</li>
+                <li><strong>Press & Hold</strong>: Pause slide timer and media.</li>
+                <li><strong>Swipe Left / Right</strong>: Smooth gesture page flip.</li>
+                <li><strong>Swipe Down</strong> / <kbd className="bg-slate-800 px-1 rounded text-white">Esc</kbd>: Close player.</li>
+              </ul>
             </div>
           </div>
         </div>
