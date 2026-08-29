@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { StoryPage, StoryElement } from "@prisma/client";
-import { X, ChevronLeft, ChevronRight, Share2, Play, Pause, ExternalLink } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Share2, Play, Pause, ExternalLink, ArrowRight } from "lucide-react";
+import { SlideLayoutType } from "@/lib/themes/layouts";
 
 type PageWithElements = StoryPage & { elements: StoryElement[] };
 
@@ -104,34 +105,39 @@ export function StoryViewer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [goNext, goPrev, onClose]);
 
-  // Touch handlers
+  // Tap handling
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const third = rect.width / 3;
+
+    if (x < third) {
+      goPrev();
+    } else {
+      goNext();
+    }
+  };
+
+  // Touch gestures for swipe
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Swipe down to close
+    if (diffY > 80 && Math.abs(diffX) < 50) {
+      onClose?.();
+      return;
+    }
 
     // Horizontal swipe
-    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX > 0) goPrev();
-      else goNext();
-    }
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const third = rect.width / 3;
-
-    if (x < third) {
-      goPrev();
-    } else if (x > rect.width - third) {
-      goNext();
-    } else {
-      setIsPaused((p) => !p);
+    if (Math.abs(diffX) > 40) {
+      if (diffX < 0) goNext();
+      else goPrev();
     }
   };
 
@@ -139,49 +145,43 @@ export function StoryViewer({
     e.stopPropagation();
     if (navigator.share) {
       try {
-        await navigator.share({ title, url: window.location.href });
+        await navigator.share({
+          title,
+          url: window.location.href,
+        });
       } catch {}
     } else {
-      await navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  if (!pages.length) {
-    return (
-      <div className="flex items-center justify-center h-full bg-black text-white">
-        <p>No pages in this story.</p>
-      </div>
-    );
-  }
+  if (!page) return null;
 
-  const bgColor = page?.background || "#000000";
-  const bgElement = page?.elements?.find((el) => el.type === "BACKGROUND");
-  const textElements = page?.elements?.filter((el) => el.type === "TEXT") || [];
-  const ctaElement = page?.elements?.find((el) => el.type === "CTA");
+  const bgElement = page.elements.find((el) => el.type === "BACKGROUND");
+  const textElements = page.elements.filter((el) => el.type === "TEXT");
+  const ctaElement = page.elements.find((el) => el.type === "CTA");
+  const bgColor = page.background || "#0f172a";
+
+  const layoutMeta = (bgElement?.content as any)?.layoutMeta || {};
+  const layoutType: SlideLayoutType = layoutMeta.layoutType || (currentPage === 0 ? "cover-hero" : "floating-card");
+
+  const headingText = (textElements[0]?.content as any)?.text || "";
+  const descriptionText = (textElements[1]?.content as any)?.text || "";
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-2xl select-none"
+      role="region"
+      aria-label="Web Story Viewer"
     >
-      {/* Dynamic Ambient Glow matching Slide Cover */}
-      {bgElement && (bgElement.content as { src?: string })?.src && (
-        <div
-          className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-30 scale-125 pointer-events-none hidden md:block"
-          style={{ backgroundImage: `url(${(bgElement.content as { src: string }).src})` }}
-        />
-      )}
-
-      {/* Desktop Navigation Chevrons */}
+      {/* Desktop chevrons */}
       {currentPage > 0 && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            goPrev();
-          }}
-          className="hidden md:flex absolute left-8 z-30 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 backdrop-blur-md text-white items-center justify-center transition-all hover:scale-110 shadow-xl"
+          onClick={goPrev}
+          className="hidden md:flex absolute left-8 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/20 transition-all shadow-2xl hover:scale-110"
           aria-label="Previous slide"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -190,11 +190,8 @@ export function StoryViewer({
 
       {currentPage < pages.length - 1 && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            goNext();
-          }}
-          className="hidden md:flex absolute right-8 z-30 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 backdrop-blur-md text-white items-center justify-center transition-all hover:scale-110 shadow-xl"
+          onClick={goNext}
+          className="hidden md:flex absolute right-8 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/20 transition-all shadow-2xl hover:scale-110"
           aria-label="Next slide"
         >
           <ChevronRight className="w-6 h-6" />
@@ -203,7 +200,7 @@ export function StoryViewer({
 
       {/* Story 9:16 Canvas */}
       <div
-        className="story-canvas relative z-20"
+        className="story-canvas relative z-20 overflow-hidden rounded-[28px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border border-white/10"
         style={{
           width: "min(100vw, calc(100vh * 9 / 16))",
           height: "min(100vh, calc(100vw * 16 / 9))",
@@ -214,33 +211,180 @@ export function StoryViewer({
         onTouchEnd={handleTouchEnd}
         aria-label={`Slide ${currentPage + 1} of ${pages.length}`}
       >
-        {/* Background Color & Image */}
+        {/* Background Canvas Base */}
         <div
           className="absolute inset-0 transition-colors duration-500"
           style={{ backgroundColor: bgColor }}
         />
 
-        {bgElement && (bgElement.content as { src?: string })?.src && (
-          <Image
-            src={(bgElement.content as { src: string }).src}
-            alt=""
-            fill
-            className="object-cover transition-opacity duration-300"
-            style={{
-              opacity:
-                typeof (bgElement.style as { opacity?: number } | null)?.opacity === "number"
-                  ? (bgElement.style as { opacity: number }).opacity
-                  : 1,
-            }}
-            priority
-            aria-hidden="true"
-          />
+        {/* ─── 1. LAYOUT: SPLIT HALF & HALF ─── */}
+        {layoutType === "split-half" ? (
+          <div className="absolute inset-0 flex flex-col z-10">
+            {/* Top 50% Image */}
+            <div className="h-1/2 relative overflow-hidden bg-slate-900">
+              {bgElement && (bgElement.content as any)?.src && (
+                <Image
+                  src={(bgElement.content as any).src}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              )}
+            </div>
+
+            {/* Bottom 50% Solid Editorial Card */}
+            <div className="h-1/2 bg-slate-950 p-6 flex flex-col justify-between">
+              <div className="space-y-3">
+                <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 font-bold text-xs uppercase w-fit inline-block">
+                  {publisherName || "Editorial"}
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                  {headingText}
+                </h2>
+                <p className="text-sm text-slate-300 leading-relaxed line-clamp-4">
+                  {descriptionText}
+                </p>
+              </div>
+
+              {ctaElement && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <a
+                    href={(ctaElement.content as any)?.url || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 transition-all"
+                  >
+                    <span>{(ctaElement.content as any)?.label || "Learn More"}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* ─── FULL-BLEED BACKGROUND LAYOUTS ─── */
+          <>
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image
+                src={(bgElement.content as any).src}
+                alt=""
+                fill
+                className="object-cover"
+                priority
+              />
+            )}
+
+            {/* Cinematic Gradient Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/60 pointer-events-none z-10" />
+
+            {/* Dynamic Layout Content Containers */}
+            <div className="absolute bottom-12 inset-x-0 z-20 px-6 space-y-4">
+              {/* 2. FLOATING GLASS CARD */}
+              {layoutType === "floating-card" && (
+                <div className="p-5 rounded-3xl bg-black/65 backdrop-blur-xl border border-white/20 shadow-2xl space-y-2">
+                  <span className="text-[11px] font-black uppercase text-amber-300 tracking-wider">
+                    {publisherName || "Spotlight"}
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-md">
+                    {headingText}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed line-clamp-4">
+                    {descriptionText}
+                  </p>
+                </div>
+              )}
+
+              {/* 3. BIG STAT / NUMBER */}
+              {layoutType === "big-stat" && (
+                <div className="space-y-2">
+                  <div className="text-6xl font-black text-amber-300 tracking-tight drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">
+                    {layoutMeta.statNumber || "01"}
+                  </div>
+                  <h2 className="text-2xl font-black text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                    {headingText}
+                  </h2>
+                  <p className="text-sm text-slate-200 leading-relaxed drop-shadow line-clamp-3">
+                    {descriptionText}
+                  </p>
+                </div>
+              )}
+
+              {/* 4. QUOTE SPOTLIGHT */}
+              {layoutType === "quote-spotlight" && (
+                <div className="text-center space-y-3 py-6">
+                  <span className="text-6xl text-amber-300 font-serif leading-none block drop-shadow-lg">
+                    “
+                  </span>
+                  <blockquote className="text-lg sm:text-xl font-bold text-white italic leading-relaxed px-2 drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)]">
+                    {headingText}
+                  </blockquote>
+                  {layoutMeta.quoteAuthor && (
+                    <cite className="text-xs font-bold text-amber-300 tracking-wider uppercase block not-italic pt-2 drop-shadow">
+                      — {layoutMeta.quoteAuthor}
+                    </cite>
+                  )}
+                </div>
+              )}
+
+              {/* 5. STEP LIST */}
+              {layoutType === "step-list" && (
+                <div className="space-y-2.5">
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-500 text-white font-black text-xs uppercase shadow-lg">
+                    {layoutMeta.stepNumber || "STEP 01"}
+                  </span>
+                  <h2 className="text-2xl font-black text-white leading-tight drop-shadow">
+                    {headingText}
+                  </h2>
+                  <p className="text-sm text-slate-200 leading-relaxed drop-shadow line-clamp-4">
+                    {descriptionText}
+                  </p>
+                </div>
+              )}
+
+              {/* 6. CTA FINALE */}
+              {layoutType === "cta-finale" && (
+                <div className="space-y-4 text-center">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow">
+                    {headingText}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed drop-shadow">
+                    {descriptionText}
+                  </p>
+                </div>
+              )}
+
+              {/* 7. COVER HERO */}
+              {layoutType === "cover-hero" && (
+                <div className="space-y-2">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
+                    {headingText}
+                  </h2>
+                  <p className="text-sm text-slate-200 leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3">
+                    {descriptionText}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Button */}
+              {ctaElement && (
+                <div className="pt-2" onClick={(e) => e.stopPropagation()}>
+                  <a
+                    href={(ctaElement.content as any)?.url || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-white hover:bg-slate-100 text-slate-950 font-black text-xs sm:text-sm shadow-2xl hover:scale-105 transition-all"
+                  >
+                    <span>{(ctaElement.content as any)?.label || "Explore More"}</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
-        {/* Cinematic Gradient Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60 pointer-events-none" />
-
-        {/* Segmented Progress Bars */}
+        {/* Top Progress Bars */}
         <div className="absolute top-0 inset-x-0 z-30 flex gap-1.5 p-3.5">
           {pages.map((_, i) => (
             <div key={i} className="story-progress-bar flex-1" aria-hidden="true">
@@ -250,7 +394,7 @@ export function StoryViewer({
                   transform: `scaleX(${
                     i < currentPage ? 1 : i === currentPage ? progress : 0
                   })`,
-                  transitionDuration: i === currentPage ? "0ms" : "0ms",
+                  transitionDuration: "0ms",
                 }}
               />
             </div>
@@ -274,7 +418,6 @@ export function StoryViewer({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Share Button */}
             <button
               onClick={handleShare}
               className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors shadow-md"
@@ -283,7 +426,6 @@ export function StoryViewer({
               <Share2 className="w-3.5 h-3.5" />
             </button>
 
-            {/* Close Button */}
             {showCloseButton && onClose && (
               <button
                 onClick={(e) => {
@@ -299,72 +441,21 @@ export function StoryViewer({
           </div>
         </div>
 
-        {/* Pause Indicator Toast */}
+        {/* Pause Indicator */}
         {isPaused && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-2xl animate-fade-in">
               <Pause className="w-6 h-6 fill-white" />
             </div>
           </div>
         )}
 
-        {/* Share Copied Toast */}
+        {/* Toast */}
         {copied && (
           <div className="absolute top-16 inset-x-0 z-40 flex justify-center pointer-events-none animate-fade-in">
             <span className="px-4 py-1.5 rounded-full bg-black/80 text-white text-xs font-semibold backdrop-blur-md shadow-lg border border-white/20">
               Link copied to clipboard!
             </span>
-          </div>
-        )}
-
-        {/* Text Elements */}
-        {textElements.map((el) => {
-          const content = (el.content as { text?: string }) || {};
-          const pos = (el.position as { x: number; y: number }) || { x: 0, y: 0 };
-          const size = (el.size as { width: number; height: number }) || { width: 100, height: 50 };
-          const style = (el.style as Record<string, number | string>) || {};
-
-          return (
-            <div
-              key={el.id}
-              className="absolute z-20 pointer-events-none p-2"
-              style={{
-                left: `${pos.x ?? 0}%`,
-                top: `${pos.y ?? 0}%`,
-                width: `${size.width ?? 90}%`,
-              }}
-            >
-              <p
-                style={{
-                  fontSize: style.fontSize ? `${style.fontSize}px` : "24px",
-                  fontWeight: style.fontWeight || 700,
-                  color: (style.color as string) || "#ffffff",
-                  lineHeight: style.lineHeight || 1.3,
-                  textShadow: (style.textShadow as string) || "0 3px 12px rgba(0,0,0,0.85)",
-                  textAlign: (style.textAlign as React.CSSProperties["textAlign"]) || "left",
-                }}
-              >
-                {content.text}
-              </p>
-            </div>
-          );
-        })}
-
-        {/* Call to Action (CTA) Button */}
-        {ctaElement && (
-          <div
-            className="absolute bottom-6 inset-x-0 z-30 flex justify-center px-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <a
-              href={(ctaElement.content as { url?: string })?.url || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white text-slate-950 font-bold text-xs sm:text-sm shadow-2xl hover:scale-105 transition-transform"
-            >
-              <span>{(ctaElement.content as { label?: string })?.label || "Explore More"}</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
           </div>
         )}
       </div>
