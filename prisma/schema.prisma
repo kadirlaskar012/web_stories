@@ -1,0 +1,278 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  EDITOR
+  AUTHOR
+}
+
+enum StoryStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ElementType {
+  TEXT
+  IMAGE
+  VIDEO
+  SHAPE
+  CTA
+  BACKGROUND
+}
+
+enum EventType {
+  VIEW
+  COMPLETION
+  PAGE_VIEW
+  CTA_CLICK
+  SHARE_CLICK
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  role          Role     @default(AUTHOR)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  stories       Story[]
+  activityLogs  ActivityLog[]
+  revisions     Revision[]
+  media         Media[]
+  author        Author?
+
+  @@index([email])
+}
+
+model Author {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  avatar      String?
+  bio         String?
+  website     String?
+  twitter     String?
+  instagram   String?
+  linkedin    String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String?  @unique
+  user        User?    @relation(fields: [userId], references: [id])
+  stories     Story[]
+
+  @@index([slug])
+}
+
+model Category {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  description    String?
+  image          String?
+  seoTitle       String?
+  seoDescription String?
+  color          String?  @default("#6366f1")
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  stories        Story[]
+
+  @@index([slug])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  stories   StoryTag[]
+
+  @@index([slug])
+}
+
+model Story {
+  id             String      @id @default(cuid())
+  title          String
+  slug           String      @unique
+  description    String?
+  excerpt        String?
+  coverImage     String?
+  status         StoryStatus @default(DRAFT)
+  isFeatured     Boolean     @default(false)
+  viewCount      Int         @default(0)
+
+  // SEO
+  seoTitle       String?
+  seoDescription String?
+  canonicalUrl   String?
+  socialImage    String?
+  robotsMeta     String?     @default("index,follow")
+
+  // Publishing
+  publishedAt    DateTime?
+  scheduledAt    DateTime?
+
+  // Relations
+  authorId       String
+  author         Author    @relation(fields: [authorId], references: [id])
+
+  categoryId     String
+  category       Category  @relation(fields: [categoryId], references: [id])
+
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id])
+
+  pages          StoryPage[]
+  tags           StoryTag[]
+  revisions      Revision[]
+  analyticsEvents AnalyticsEvent[]
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([isFeatured])
+}
+
+model StoryPage {
+  id         String   @id @default(cuid())
+  storyId    String
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  order      Int
+  background String?  @default("#000000")
+  duration   Int      @default(7)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  elements   StoryElement[]
+
+  @@index([storyId])
+  @@index([order])
+}
+
+model StoryElement {
+  id        String      @id @default(cuid())
+  pageId    String
+  page      StoryPage   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type      ElementType
+  content   Json        @default("{}")
+  position  Json        @default("{\"x\": 0, \"y\": 0}")
+  size      Json        @default("{\"width\": 100, \"height\": 50}")
+  style     Json        @default("{}")
+  animation Json        @default("{}")
+  link      String?
+  altText   String?
+  order     Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([pageId])
+}
+
+model StoryTag {
+  storyId String
+  tagId   String
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, tagId])
+  @@index([tagId])
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  url          String
+  thumbnailUrl String?
+  width        Int?
+  height       Int?
+  fileSize     Int?
+  mimeType     String
+  altText      String?
+  cloudinaryId String?
+  format       String?
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([uploadedById])
+  @@index([mimeType])
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
+model AnalyticsEvent {
+  id        String    @id @default(cuid())
+  storyId   String?
+  story     Story?    @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  eventType EventType
+  sessionId String?
+  pageIndex Int?
+  metadata  Json?     @default("{}")
+  createdAt DateTime  @default(now())
+
+  @@index([storyId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model Revision {
+  id        String   @id @default(cuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  data      Json
+  editedById String?
+  editedBy  User?    @relation(fields: [editedById], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([storyId])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?    @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
