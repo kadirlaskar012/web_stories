@@ -548,7 +548,316 @@ export function StoryViewer({
           </div>
         )}
 
-        {/* ─── 7. QUOTE SPOTLIGHT ─── */}
+        {/* ─── 7. TECH LAUNCH & GADGET SPOTLIGHT ─── */}
+        {layoutType === "tech-spotlight" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white bg-[#050b14]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-50" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050b14] via-[#050b14]/70 to-transparent pointer-events-none" />
+
+            <div className="relative z-20 pt-8 space-y-1">
+              <span className="inline-block px-3 py-1 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "HARDWARE REVEAL"}
+              </span>
+              <p className="text-xs text-cyan-400 font-mono font-bold mt-1">
+                {subheadText || "3nm Architecture • 45% Lower Power"}
+              </p>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-cyan-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR SPECS</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 8. INVESTIGATIVE DEEP DIVE ─── */}
+        {layoutType === "investigative-report" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-slate-100 bg-[#0b0c10]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-60 grayscale" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/70 pointer-events-none" />
+
+            <div className="relative z-20 pt-8 space-y-1">
+              <span className="inline-block px-3 py-1 rounded bg-red-700 text-white font-black text-xs uppercase tracking-widest shadow">
+                {badgeText || "SPECIAL INVESTIGATION"}
+              </span>
+              <p className="text-[11px] text-red-400 font-mono">{locationDate || "SPECIAL DISPATCH"}</p>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="font-serif font-black text-2xl sm:text-3xl text-white leading-tight drop-shadow">
+                {headingText}
+              </h2>
+              <div className="w-12 h-1 bg-red-600" />
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3 font-serif">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-white/80 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR EVIDENCE</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 9. SPORTS BULLETIN – GAME NIGHT ─── */}
+        {layoutType === "sports-bulletin" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white bg-[#0a0d18]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-75" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-slate-950/40 to-black/60 pointer-events-none" />
+
+            <div className="relative z-20 pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-orange-600 text-white font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "FINAL SCORE"}
+              </span>
+              <span className="px-3 py-1 rounded bg-black/60 text-amber-400 font-black text-xs font-mono border border-white/20">
+                {subheadText || "FINAL ROUND"}
+              </span>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight uppercase drop-shadow">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-200 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-orange-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR HIGHLIGHTS</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 10. OPINION & OP-ED COLUMN ─── */}
+        {layoutType === "opinion-column" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-slate-900 bg-[#f4efe6]">
+            <div className="pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-stone-800 text-white font-black text-xs uppercase tracking-wider">
+                {badgeText || "OP-ED COLUMN"}
+              </span>
+              <span className="text-xs font-bold text-stone-600">{publisherName}</span>
+            </div>
+
+            <div className="space-y-3 my-auto">
+              <span className="text-5xl text-stone-400 font-serif leading-none block">“</span>
+              <h2 className="font-serif font-black text-2xl sm:text-3xl text-slate-950 leading-tight">
+                {headingText}
+              </h2>
+              <div className="w-8 h-1 bg-stone-800" />
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-sans">
+                {descriptionText}
+              </p>
+              <p className="text-xs font-black text-stone-900 italic pt-2">
+                — {quoteAuthor || "By Editorial Contributor"}
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center justify-center text-stone-600 animate-bounce">
+              <ChevronUp className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP TO READ</span>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 11. TRAVEL & WANDERLUST GUIDE ─── */}
+        {layoutType === "travel-guide" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-amber-100 bg-[#1c130d]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-80" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-amber-950/20 to-black/50 pointer-events-none" />
+
+            <div className="relative z-20 pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-amber-600 text-slate-950 font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "CITY GUIDE"}
+              </span>
+              <span className="text-xs font-bold text-amber-300 font-mono tracking-wider">
+                {subheadText || "DESTINATION"}
+              </span>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="font-serif font-bold text-2xl sm:text-3xl text-white leading-tight drop-shadow">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-amber-200 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-amber-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR ITINERARY</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 12. FINANCE & MARKET MOVER ─── */}
+        {layoutType === "finance-market" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-emerald-400 bg-[#06100d]">
+            <div className="pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider shadow flex items-center gap-1">
+                <TrendingUp className="w-3.5 h-3.5" />
+                {badgeText || "MARKET MOVERS"}
+              </span>
+              <span className="text-xs font-mono font-bold text-emerald-300">
+                {subheadText || "+2.4% NASDAQ"}
+              </span>
+            </div>
+
+            <div className="space-y-4 my-auto">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                {headingText}
+              </h2>
+              <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 backdrop-blur-sm">
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-sans">
+                  {descriptionText}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center justify-center text-emerald-400 animate-bounce">
+              <ChevronUp className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR ANALYSIS</span>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 13. SCIENCE & BREAKTHROUGH DISCOVERY ─── */}
+        {layoutType === "science-discovery" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-teal-300 bg-[#041417]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-60" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#041417] via-[#041417]/50 to-transparent pointer-events-none" />
+
+            <div className="relative z-20 pt-8">
+              <span className="inline-block px-3 py-1 rounded bg-teal-600 text-slate-950 font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "SCIENCE & NATURE"}
+              </span>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-200 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <p className="text-[10px] text-teal-400 font-mono">{sourceText || "Published in Nature"}</p>
+              <div className="pt-2 flex flex-col items-center justify-center text-teal-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR PAPER</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 14. CULINARY & GOURMET REVIEW ─── */}
+        {layoutType === "culinary-review" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-amber-200 bg-[#160d09]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-80" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-rose-950/20 to-black/60 pointer-events-none" />
+
+            <div className="relative z-20 pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-rose-700 text-white font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "MICHELIN GUIDE ★★★"}
+              </span>
+              <span className="text-xs text-amber-400 italic font-serif">
+                {subheadText || "Gourmet Tasting"}
+              </span>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="font-serif font-black text-2xl sm:text-3xl text-white leading-tight drop-shadow">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-amber-100 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-amber-300 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR MENU</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 15. CLIMATE & EARTH PULSE ─── */}
+        {layoutType === "climate-pulse" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-emerald-300 bg-[#06120c]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-70" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-emerald-950/30 to-black/60 pointer-events-none" />
+
+            <div className="relative z-20 pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-emerald-800 text-white font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "PLANET PULSE"}
+              </span>
+              <span className="text-xs font-mono text-emerald-400">{subheadText || "Earth Observation"}</span>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-200 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-emerald-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR METRICS</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── 16. AUTOMOTIVE & SPEED SHOWCASE ─── */}
+        {layoutType === "automotive-showcase" && (
+          <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-red-400 bg-[#08080a]">
+            {bgElement && (bgElement.content as any)?.src && (
+              <Image src={(bgElement.content as any).src} alt="" fill className="object-cover opacity-80" priority />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/60 pointer-events-none" />
+
+            <div className="relative z-20 pt-8 flex items-center justify-between">
+              <span className="px-3 py-1 rounded bg-zinc-800 text-white border border-zinc-700 font-black text-xs uppercase tracking-wider shadow">
+                {badgeText || "TRACK TEST"}
+              </span>
+              <span className="text-xs font-mono font-bold text-red-400">{subheadText || "0-60 in 1.8s"}</span>
+            </div>
+
+            <div className="relative z-20 space-y-3 pb-4">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight uppercase drop-shadow">
+                {headingText}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-snug drop-shadow line-clamp-3">
+                {descriptionText}
+              </p>
+              <div className="pt-2 flex flex-col items-center justify-center text-red-400 animate-bounce">
+                <ChevronUp className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">SWIPE UP FOR LAP VIDEO</span>
+              </div>
+            </div>
+          </div>
+        )}
         {layoutType === "quote-spotlight" && (
           <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white text-center bg-slate-950">
             <span className="text-5xl text-amber-400 font-serif leading-none mt-12 block">“</span>
