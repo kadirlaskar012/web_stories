@@ -306,9 +306,9 @@ export function StoryWizard({
         descriptionText: "Red Cross stations activated with emergency beds, food supplies, and air filters for residents.",
         locationDate: "JUNE 1, 2024 | LOS ANGELES COUNTY",
         duration: 8,
-        hasCta: true,
-        ctaLabel: "View Live Evacuation Map",
-        ctaUrl: "/stories",
+        hasCta: false,
+        ctaLabel: "Swipe Up for More",
+        ctaUrl: "",
         headlineStyle: { fontSize: 24, fontWeight: "800", fontStyle: "normal", textDecoration: "none", textAlign: "left", color: "#ffffff", positionY: "bottom" },
         descriptionStyle: { fontSize: 13, fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "left", color: "#e2e8f0" },
         imageStyle: { scale: 1, objectPosition: "center" },
@@ -734,10 +734,10 @@ export function StoryWizard({
           });
         }
 
-        if (slide.hasCta && slide.ctaLabel) {
+        if (slide.hasCta && slide.ctaLabel && slide.ctaUrl && slide.ctaUrl.trim() !== "" && slide.ctaUrl !== "#") {
           elements.push({
             type: ElementType.CTA,
-            content: { label: slide.ctaLabel, url: slide.ctaUrl || "#" },
+            content: { label: slide.ctaLabel, url: slide.ctaUrl },
             position: { x: 15, y: 88 },
             size: { width: 70, height: 8 },
             style: {

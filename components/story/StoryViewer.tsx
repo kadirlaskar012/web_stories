@@ -79,6 +79,7 @@ export function StoryViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>(`sess_${Math.random().toString(36).slice(2, 10)}`);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const touchHandledRef = useRef<boolean>(false);
 
   const page = pages[currentPage];
   const duration = (page?.duration || 7) * 1000;
@@ -164,6 +165,11 @@ export function StoryViewer({
 
   // ─── 14. Close Handler ─────────────────────────────────────────────────────
   const handleClose = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
     trackEvent("exit", currentPage);
     if (onClose) {
       onClose();
@@ -176,7 +182,7 @@ export function StoryViewer({
     }
   }, [onClose, categorySlug, router, trackEvent, currentPage]);
 
-  // ─── 4 & 5. Navigation (Next / Previous) ───────────────────────────────────
+  // ─── 4 & 5. Navigation (Next / Previous / Continuous Loop) ──────────────────
   const goNext = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
     progressRef.current = 0;
@@ -189,10 +195,10 @@ export function StoryViewer({
         trackEvent("page_view", next);
         return next;
       } else {
-        setIsCompleted(true);
-        setIsPaused(true);
-        trackEvent("story_complete", curr);
-        return curr;
+        // Continuous auto-play loop: 1 to 10 then 1 to 10
+        trackEvent("page_complete", curr);
+        trackEvent("story_loop", 0);
+        return 0;
       }
     });
   }, [pages.length, trackEvent]);
@@ -202,21 +208,37 @@ export function StoryViewer({
     progressRef.current = 0;
     setProgress(0);
 
-    if (isCompleted) {
-      setIsCompleted(false);
-      setIsPaused(false);
-      return;
-    }
-
     setCurrentPage((curr) => {
       if (curr > 0) {
         const prev = curr - 1;
         trackEvent("nav_prev", prev);
         return prev;
       }
-      return curr;
+      return 0;
     });
-  }, [isCompleted, trackEvent]);
+  }, [trackEvent]);
+
+  // ─── 3-Zone Touch & Click Navigation (Left 30% = Prev, Right 30% = Next, Center 40% = Pause/Play)
+  const handleZoneInteraction = useCallback((clientX: number) => {
+    if (isMuted && !userMutedExplicitlyRef.current && activeAudioUrl) {
+      attemptAutoPlayAudio();
+    }
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const relativeX = clientX - rect.left;
+    const ratio = relativeX / rect.width;
+
+    if (ratio < 0.30) {
+      // Left 30%: Previous Slide
+      goPrev();
+    } else if (ratio > 0.70) {
+      // Right 30%: Next Slide
+      goNext();
+    } else {
+      // Center 40%: Toggle Pause & Play
+      setIsPaused((prev) => !prev);
+    }
+  }, [isMuted, activeAudioUrl, attemptAutoPlayAudio, goPrev, goNext]);
 
   const handleReplayStory = () => {
     cancelAnimationFrame(rafRef.current);
@@ -337,12 +359,14 @@ export function StoryViewer({
 
     if (isHolding) {
       setIsHolding(false);
+      touchHandledRef.current = true;
       return;
     }
 
     // 7. Swipe down to close
     if (diffY > 80 && Math.abs(diffX) < 60) {
       handleClose();
+      touchHandledRef.current = true;
       return;
     }
 
@@ -350,35 +374,22 @@ export function StoryViewer({
     if (Math.abs(diffX) > 40) {
       if (diffX < 0) goNext();
       else goPrev();
+      touchHandledRef.current = true;
       return;
     }
 
-    // 4 & 5. Left 35% / Right 65% tap navigation
-    if (isMuted && !userMutedExplicitlyRef.current && activeAudioUrl) {
-      attemptAutoPlayAudio();
-    }
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      const x = e.changedTouches[0].clientX - rect.left;
-      if (x < rect.width * 0.35) {
-        goPrev();
-      } else {
-        goNext();
-      }
-    }
+    // 3-Zone Tap Navigation (Left 30% = Prev, Right 30% = Next, Center 40% = Pause/Play)
+    handleZoneInteraction(e.changedTouches[0].clientX);
+    touchHandledRef.current = true;
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isMuted && !userMutedExplicitlyRef.current && activeAudioUrl) {
-      attemptAutoPlayAudio();
+    // If touched on mobile, touch handler already executed this interaction
+    if (touchHandledRef.current) {
+      touchHandledRef.current = false;
+      return;
     }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    if (x < rect.width * 0.35) {
-      goPrev();
-    } else {
-      goNext();
-    }
+    handleZoneInteraction(e.clientX);
   };
 
   const handleMouseDown = () => {
@@ -477,9 +488,9 @@ export function StoryViewer({
   ];
 
   const isLight = layoutType === "split-screen-card" || layoutType === "polaroid-photo-frame";
-  const hasCta = !!ctaElement;
   const ctaUrl = (ctaElement?.content as any)?.url || "";
   const ctaLabel = (ctaElement?.content as any)?.label || "Swipe Up for Details";
+  const hasCta = !!ctaElement && !!ctaUrl && ctaUrl.trim() !== "" && ctaUrl !== "#";
 
   return (
     <div
@@ -487,8 +498,24 @@ export function StoryViewer({
       role="region"
       aria-label="Google Web Story Player"
     >
+      {/* Outer Floating Desktop Close Button */}
+      {showCloseButton && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            handleClose();
+          }}
+          className="hidden md:flex fixed top-5 right-6 z-50 w-11 h-11 rounded-full bg-black/70 hover:bg-red-600 text-white border border-white/20 backdrop-blur-md items-center justify-center shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          aria-label="Close Story"
+        >
+          <X className="w-6 h-6 stroke-[2.5]" />
+        </button>
+      )}
+
       {/* Desktop Navigation Chevrons */}
-      {currentPage > 0 && !isCompleted && (
+      {currentPage > 0 && (
         <button
           onClick={goPrev}
           className="hidden md:flex absolute left-6 lg:left-10 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/25 transition-all shadow-2xl hover:scale-110"
@@ -498,7 +525,7 @@ export function StoryViewer({
         </button>
       )}
 
-      {currentPage < pages.length - 1 && !isCompleted && (
+      {currentPage < pages.length - 1 && (
         <button
           onClick={goNext}
           className="hidden md:flex absolute right-6 lg:right-10 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 items-center justify-center text-white hover:bg-white/25 transition-all shadow-2xl hover:scale-110"
@@ -609,38 +636,41 @@ export function StoryViewer({
 
             {/* Top Right Action Icons */}
             <div className="flex items-center gap-2">
-              {/* 10. Mute / Unmute Button */}
-              <button
-                type="button"
-                onClick={handleToggleMute}
-                className="w-8 h-8 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 flex items-center justify-center transition-colors shadow"
-                aria-label={isMuted ? "Unmute story" : "Mute story"}
-              >
-                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              </button>
+              {/* 10. Mute / Unmute Button (ONLY when audio is actually attached) */}
+              {activeAudioUrl && activeAudioUrl.trim() !== "" && (
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 flex items-center justify-center transition-colors shadow"
+                  aria-label={isMuted ? "Unmute story" : "Mute story"}
+                >
+                  {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
 
               {/* Share Button */}
               <button
                 type="button"
                 onClick={handleShare}
-                className="w-8 h-8 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 flex items-center justify-center transition-colors shadow"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 flex items-center justify-center transition-colors shadow"
                 aria-label="Share story"
               >
                 <Share2 className="w-3.5 h-3.5" />
               </button>
 
-              {/* 14. Close (✕) Button */}
+              {/* 14. Prominent Close (✕) Button */}
               {showCloseButton && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     handleClose();
                   }}
-                  className="w-8 h-8 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-red-600 flex items-center justify-center transition-colors shadow"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/70 text-white border border-white/20 backdrop-blur-md hover:bg-red-600 hover:border-red-600 flex items-center justify-center transition-all shadow-lg active:scale-90"
                   aria-label="Close Story Player"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5 stroke-[2.5]" />
                 </button>
               )}
             </div>
@@ -993,31 +1023,28 @@ export function StoryViewer({
           )}
         </div>
 
-        {/* ─── 17. DEDICATED BOTTOM CTA BAR (SAFE MARGINS & ZERO OVERLAP) ────── */}
-        {hasCta ? (
+        {/* ─── 17. DEDICATED BOTTOM CTA BAR (ONLY IF EXPLICITLY CONFIGURED) ────── */}
+        {hasCta && (
           <div
             className="absolute bottom-5 inset-x-5 z-30 pointer-events-auto"
             onClick={(e) => handleCtaClick(e, ctaUrl)}
           >
             <div className="w-full py-3 px-5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-2xl flex items-center justify-center gap-2 transition-transform hover:scale-105 cursor-pointer">
-              <span>{ctaLabel}</span>
+              <span>{ctaLabel || "Learn More"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </div>
-        ) : (
-          <div className="absolute bottom-3 inset-x-0 z-20 flex flex-col items-center justify-center text-white/80 animate-bounce pointer-events-none">
-            <ChevronUp className="w-3.5 h-3.5" />
-            <span className="text-[8px] font-black uppercase tracking-widest">
-              TAP RIGHT TO ADVANCE
-            </span>
-          </div>
         )}
 
-        {/* ─── 6. PRESS & HOLD PAUSE INDICATOR ──────────────────────────────── */}
-        {(isPaused || isHolding) && !isCompleted && (
+        {/* ─── 6. CENTER PAUSE / PLAY INDICATOR ──────────────────────────────── */}
+        {(isPaused || isHolding) && (
           <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
             <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-2xl animate-fade-in">
-              <Pause className="w-6 h-6 fill-white" />
+              {isHolding ? (
+                <Pause className="w-6 h-6 fill-white" />
+              ) : (
+                <Play className="w-6 h-6 fill-white ml-0.5" />
+              )}
             </div>
           </div>
         )}
