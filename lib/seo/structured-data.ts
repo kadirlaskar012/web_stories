@@ -48,6 +48,7 @@ export function generateStoryJsonLd(story: StoryWithRelations, settings: SiteSet
       },
     },
     articleSection: story.category.name,
+    keywords: (story as any).tags?.map((t: any) => t.tag?.name || t.name).filter(Boolean).join(", ") || `${story.category.name}, visual stories, news`,
     inLanguage: 'en-US',
   };
 }

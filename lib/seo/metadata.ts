@@ -3,7 +3,11 @@ import { Metadata } from 'next';
 import { absoluteUrl } from '@/lib/utils';
 import { SiteSettings } from '@/lib/settings';
 
-type StoryWithRelations = Story & { author: Author; category: Category };
+type StoryWithRelations = Story & {
+  author: Author;
+  category: Category;
+  tags?: { tag: { name: string } }[];
+};
 
 export function generateStoryMetadata(
   story: StoryWithRelations,
@@ -14,10 +18,12 @@ export function generateStoryMetadata(
   const url = absoluteUrl(`/story/${story.slug}`);
   const ampUrl = absoluteUrl(`/api/stories/${story.slug}/amp`);
   const image = story.socialImage || story.coverImage || settings.default_social_image || '';
+  const keywords = story.tags?.map((t) => t.tag?.name).filter(Boolean) || [story.category.name, settings.site_name, "web stories", "visual news"];
 
   return {
     title,
     description,
+    keywords,
     alternates: {
       canonical: story.canonicalUrl || url,
       types: {

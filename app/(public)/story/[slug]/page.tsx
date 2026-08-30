@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const [story, settings] = await Promise.all([
       prisma.story.findUnique({
         where: { slug, status: StoryStatus.PUBLISHED },
-        include: { author: true, category: true },
+        include: { author: true, category: true, tags: { include: { tag: true } } },
       }).catch(() => null),
       getSiteSettings(),
     ]);

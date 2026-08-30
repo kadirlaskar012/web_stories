@@ -9,6 +9,9 @@ export type SiteSettings = {
   footer_text: string;
   social_twitter: string;
   social_instagram: string;
+  social_facebook?: string;
+  ga_id?: string;
+  adsense_publisher_id?: string;
   google_verification: string;
   bing_verification: string;
   pinterest_verification: string;
@@ -29,6 +32,9 @@ const DEFAULT_SETTINGS: SiteSettings = {
   footer_text: '© 2026 StoryPulse Media. All rights reserved.',
   social_twitter: '',
   social_instagram: '',
+  social_facebook: '',
+  ga_id: '',
+  adsense_publisher_id: '',
   google_verification: '',
   bing_verification: '',
   pinterest_verification: '',

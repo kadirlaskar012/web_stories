@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Category, Author, StoryStatus, ElementType } from "@prisma/client";
@@ -57,7 +57,132 @@ import {
   Pause,
   Volume2,
   VolumeX,
+  Zap,
+  HelpCircle,
+  X,
+  CheckCheck,
+  Lightbulb,
+  FileSpreadsheet,
 } from "lucide-react";
+import { toast } from "@/components/ui/Toast";
+
+export const BULK_SAMPLES = [
+  {
+    id: "tech-ai",
+    title: "⚡ Top 5 Tech & AI Trends (5 Slides)",
+    content: `1. Next-Gen Autonomous AI Agents | Artificial intelligence shifts from conversational chat to fully autonomous agents executing workflows. | TECH ADVANCEMENT
+2. Quantum Computing Milestones | Major research labs achieve quantum supremacy in cryptographic simulations. | QUANTUM TECH
+3. Electric Aviation Takes Flight | First commercial electric air-taxi routes approved for major metropolitan hubs. | GREEN TRANSPORT
+4. Spatial Computing & Holographics | Lightweight spatial headsets redefine remote work and 3D design collaboration. | SPATIAL TECH
+5. Brain-Computer Interfaces | High-bandwidth neural implants enable direct thought-to-text typing speeds. | FUTURE BIOTECH`,
+  },
+  {
+    id: "breaking-news",
+    title: "🚨 Breaking News 4-Slide Digest (4 Slides)",
+    content: `1. Historic Global Climate Accord Signed | 190 nations agree on landmark zero-emission targets by 2035 with binding investment funds. | GLOBAL ACCORD
+2. Financial Markets Surge on Historic News | Global clean energy indices jump 12% following the multinational announcement. | MARKET WATCH
+3. Infrastructure Rollout Begins Q1 | Over $500 billion earmarked for immediate renewable grid and battery storage projects. | POLICY TIMELINE
+4. Expert Reactions & Long-Term Impact | "This marks the single largest coordinated economic shift of the 21st century." | EXPERT ANALYSIS`,
+  },
+  {
+    id: "fast-facts",
+    title: "💡 10 Fascinating Science Facts (10 Slides)",
+    content: `1. Honey Never Spoils | Archaeologists have found 3,000-year-old honey in Egyptian tombs that is still perfectly edible. | NATURE FACT
+2. A Day on Venus is Longer Than Its Year | Venus takes 243 Earth days to rotate once on its axis, but only 225 days to orbit the Sun. | ASTRONOMY
+3. Bananas are Naturally Radioactive | Bananas contain potassium-40, making them slightly radioactive yet completely harmless. | FOOD SCIENCE
+4. Octopuses Have Three Hearts | Two hearts pump blood to the gills, while the third circulates it to the rest of the body. | OCEAN LIFE
+5. Water Can Boil and Freeze at the Same Time | Known as the "Triple Point", where temperature and pressure allow all three phases to coexist. | PHYSICS
+6. Trees Can Communicate Underground | Forests use mycorrhizal fungi networks to share nutrients and send warning signals. | BOTANY
+7. Diamonds Rain on Neptune and Uranus | Extreme atmospheric pressures condense methane into solid diamond hail inside ice giants. | SOLAR SYSTEM
+8. Your Bones are Stronger Than Steel | Ounce for ounce, human bone can withstand more pressure than structural steel. | HUMAN BODY
+9. Sound Cannot Travel in Space | Space is a near-perfect vacuum with no air molecules to vibrate and carry sound waves. | SPACE COSMOS
+10. The Eiffel Tower Grows in Summer | Thermal expansion makes the iron structure expand by up to 15 centimeters in hot weather. | ENGINEERING`,
+  },
+];
+
+export interface ParsedSlideInput {
+  headingText: string;
+  descriptionText: string;
+  badgeText?: string;
+  rankNumber?: string;
+}
+
+export function parseBulkSlidesText(rawText: string): ParsedSlideInput[] {
+  const trimmed = rawText.trim();
+  if (!trimmed) return [];
+
+  // 1. Try parsing JSON format
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item, idx) => ({
+          headingText: item.headingText || item.title || item.heading || `Slide #${idx + 1}`,
+          descriptionText: item.descriptionText || item.description || item.text || item.content || "",
+          badgeText: item.badgeText || item.badge || item.category || undefined,
+          rankNumber: item.rankNumber || (idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`),
+        }));
+      }
+    } catch {}
+  }
+
+  // 2. Try line-by-line / pipe separated format
+  const lines = trimmed.split("\n").map((l) => l.trim()).filter(Boolean);
+  const isPipeFormat = lines.some((l) => l.includes("|"));
+
+  if (isPipeFormat) {
+    const results: ParsedSlideInput[] = [];
+    lines.forEach((line, idx) => {
+      const parts = line.split("|").map((p) => p.trim());
+      if (parts.length >= 1) {
+        let heading = parts[0].replace(/^(?:\d+[\.\)\-:]|\#\d+)\s*/, "").trim();
+        const description = parts[1] || "";
+        const badge = parts[2] || undefined;
+        if (heading || description) {
+          results.push({
+            headingText: heading || `Slide Point #${idx + 1}`,
+            descriptionText: description,
+            badgeText: badge,
+            rankNumber: idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`,
+          });
+        }
+      }
+    });
+    if (results.length > 0) return results;
+  }
+
+  // 3. Block format separated by double linebreaks
+  const blocks = trimmed.split(/\n\s*\n+/).filter(Boolean);
+  const results: ParsedSlideInput[] = [];
+
+  blocks.forEach((block, idx) => {
+    const blockLines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (blockLines.length === 0) return;
+
+    let heading = blockLines[0].replace(/^(?:\d+[\.\)\-:]|\#\d+)\s*/, "").trim();
+    let badge: string | undefined = undefined;
+    let descriptionLines: string[] = [];
+
+    for (let i = 1; i < blockLines.length; i++) {
+      const line = blockLines[i];
+      const badgeMatch = line.match(/^\[?(?:badge|tag|category):\s*([^\]]+)\]?$/i);
+      if (badgeMatch) {
+        badge = badgeMatch[1].trim();
+      } else {
+        descriptionLines.push(line);
+      }
+    }
+
+    results.push({
+      headingText: heading || `Slide Point #${idx + 1}`,
+      descriptionText: descriptionLines.join(" "),
+      badgeText: badge,
+      rankNumber: idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`,
+    });
+  });
+
+  return results;
+}
 
 export const AUDIO_PRESETS = [
   { id: "none", name: "No Music (Silent)", url: "" },
@@ -400,6 +525,87 @@ export function StoryWizard({
 
     setActiveSlideIndex(0);
     setViewMode("editor");
+  };
+
+  // ─── Bulk Slide Importer States & Handlers ─────────────────────────────────
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkInputText, setBulkInputText] = useState("");
+  const [bulkImportMode, setBulkImportMode] = useState<"replace" | "append">("append");
+  const [bulkTargetTemplate, setBulkTargetTemplate] = useState<SlideLayoutType>(selectedTemplate);
+
+  const parsedBulkSlides = useMemo(() => {
+    return parseBulkSlidesText(bulkInputText);
+  }, [bulkInputText]);
+
+  const handleApplyBulkImport = () => {
+    if (parsedBulkSlides.length === 0) return;
+
+    const tConfig = getLayoutById(bulkTargetTemplate);
+    const isLightTemplate = bulkTargetTemplate === "split-screen-card" || bulkTargetTemplate === "polaroid-photo-frame";
+
+    const newSlideObjects: SlideData[] = parsedBulkSlides.map((item: ParsedSlideInput, idx: number) => {
+      const order = bulkImportMode === "replace" ? idx : slides.length + idx;
+      return {
+        id: `slide-${Date.now()}-${idx}`,
+        order,
+        layoutType: bulkTargetTemplate,
+        backgroundMedia: activeSlide?.backgroundMedia || coverImage || tConfig.defaultData.mediaUrl || "",
+        backgroundColor:
+          bulkTargetTemplate === "split-screen-card"
+            ? "#f7f4ed"
+            : bulkTargetTemplate === "polaroid-photo-frame"
+            ? "#f4ede4"
+            : bulkTargetTemplate === "infographic-stats-grid"
+            ? "#070d1d"
+            : "#0c0d12",
+        badgeText: item.badgeText || tConfig.defaultData.badgeText,
+        headingText: item.headingText,
+        subheadText: tConfig.defaultData.subheadText,
+        descriptionText: item.descriptionText || "Add your editorial context, quotes, or updates for this slide...",
+        locationDate: tConfig.defaultData.locationDate,
+        sourceText: tConfig.defaultData.sourceText,
+        quoteAuthor: tConfig.defaultData.quoteAuthor,
+        rankNumber: item.rankNumber || (order + 1 < 10 ? `0${order + 1}` : `${order + 1}`),
+        duration: 7,
+        hasCta: false,
+        ctaLabel: "Swipe Up for More",
+        ctaUrl: "",
+        statsList: tConfig.defaultData.statsList,
+        timelineList: tConfig.defaultData.timelineList,
+        versusData: tConfig.defaultData.versusData,
+        checklist: tConfig.defaultData.checklist,
+        headlineStyle: {
+          fontSize: 24,
+          fontWeight: "800",
+          fontStyle: "normal",
+          textDecoration: "none",
+          textAlign: "left",
+          color: isLightTemplate ? "#0f172a" : "#ffffff",
+          positionY: "bottom",
+        },
+        descriptionStyle: {
+          fontSize: 13,
+          fontWeight: "normal",
+          fontStyle: "normal",
+          textDecoration: "none",
+          textAlign: "left",
+          color: isLightTemplate ? "#334155" : "#e2e8f0",
+        },
+        imageStyle: { scale: 1, objectPosition: "center" },
+      };
+    });
+
+    if (bulkImportMode === "replace") {
+      setSlides(newSlideObjects);
+      setActiveSlideIndex(0);
+    } else {
+      setSlides((prev) => [...prev, ...newSlideObjects]);
+      setActiveSlideIndex(slides.length);
+    }
+
+    setShowBulkModal(false);
+    setBulkInputText("");
+    toast.success(`Successfully imported ${newSlideObjects.length} slides!`);
   };
 
   const activeSlide = slides[activeSlideIndex] || slides[0];
@@ -1185,14 +1391,30 @@ export function StoryWizard({
                       Story Pages Timeline ({slides.length})
                     </h3>
 
-                    <button
-                      type="button"
-                      onClick={handleAddSlideInChosenTemplate}
-                      className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Slide</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!bulkInputText.trim()) {
+                            setBulkInputText(BULK_SAMPLES[0].content);
+                          }
+                          setShowBulkModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-black text-amber-900 bg-gradient-to-r from-amber-200 via-amber-100 to-yellow-100 hover:from-amber-300 hover:to-yellow-200 border border-amber-300/80 px-3.5 py-2 rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-amber-700 fill-amber-500" />
+                        <span>Bulk Slide Add</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAddSlideInChosenTemplate}
+                        className="inline-flex items-center gap-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Slide</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2.5 overflow-x-auto hide-scrollbar pb-2">
@@ -2216,6 +2438,224 @@ export function StoryWizard({
           </div>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* BULK SLIDE ADD MODAL (SMART PATTERN & SAMPLE IMPORTER)              */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400">
+                  <Zap className="w-5 h-5 fill-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white flex items-center gap-2">
+                    Bulk Slide Generator & Importer
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">
+                      Auto-Fill Form
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Paste multiple slide points using any pattern. Texts, headings, and structures will auto-populate!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1 hide-scrollbar">
+              {/* 1. Quick Sample Templates */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2 flex items-center gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
+                  1-Click Sample Patterns (Try a Demo):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {BULK_SAMPLES.map((sample) => (
+                    <button
+                      key={sample.id}
+                      type="button"
+                      onClick={() => setBulkInputText(sample.content)}
+                      className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/60 transition-all text-xs group"
+                    >
+                      <span className="font-bold text-slate-900 group-hover:text-amber-800 block truncate">
+                        {sample.title}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">
+                        Click to load demo syntax
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Formatting & Pattern Guide */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs font-black text-slate-800">
+                  <span className="flex items-center gap-1.5">
+                    <FileSpreadsheet className="w-4 h-4 text-blue-600" />
+                    How to Write Your Slide Pattern (Syntax Rules):
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">
+                    Pipe (|) or Numbered format
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-slate-600 font-mono bg-white p-3 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="font-bold text-slate-900 block font-sans text-xs mb-1">
+                      Format A: Pipe ( | ) Separated
+                    </span>
+                    <code>1. Headline | Description text | BADGE</code><br />
+                    <code>2. Next Headline | Slide details... | TECH</code>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block font-sans text-xs mb-1">
+                      Format B: Block Paragraphs
+                    </span>
+                    <code>1. Headline Title</code><br />
+                    <code>Description text for this slide.</code><br />
+                    <code>[Badge: BREAKING NEWS]</code>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 font-medium">
+                  💡 <strong>Image Note:</strong> Slide texts and design will be auto-generated. You can click any slide thumbnail after import to pick or upload photos!
+                </p>
+              </div>
+
+              {/* 3. Text Editor */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-800">
+                    Paste Your Slide Data Here:
+                  </label>
+                  <span className="text-xs font-bold text-slate-500">
+                    {parsedBulkSlides.length} slides ready
+                  </span>
+                </div>
+
+                <textarea
+                  value={bulkInputText}
+                  onChange={(e) => setBulkInputText(e.target.value)}
+                  placeholder={`1. NASA Discovers Earth-Like Planet | Astronomers confirm a habitable exoplanet 40 light years away. | SPACE DISCOVERY\n2. Revolutionary Atmosphere Findings | James Webb Telescope detected water vapor and carbon dioxide. | JAMES WEBB\n3. Next Steps in Exploration | Interstellar probes are planned for launch by 2040. | FUTURE EXPLORATION`}
+                  rows={8}
+                  className="w-full p-4 rounded-2xl border border-slate-200 text-slate-900 text-xs font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500 bg-slate-50/50"
+                />
+              </div>
+
+              {/* 4. Live Parsed Detection Preview */}
+              {parsedBulkSlides.length > 0 && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
+                      <CheckCheck className="w-4 h-4 text-emerald-600" />
+                      Detected {parsedBulkSlides.length} Valid Slides Ready To Create:
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {parsedBulkSlides.map((slide: ParsedSlideInput, idx: number) => (
+                      <div
+                        key={idx}
+                        className="bg-white p-2 rounded-xl border border-emerald-200/80 text-xs flex items-center justify-between gap-2 shadow-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center flex-shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="font-bold text-slate-900 truncate">
+                            {slide.headingText}
+                          </span>
+                          {slide.descriptionText && (
+                            <span className="text-[10px] text-slate-500 truncate hidden sm:inline">
+                              — {slide.descriptionText}
+                            </span>
+                          )}
+                        </div>
+                        {slide.badgeText && (
+                          <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                            {slide.badgeText}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Import Options */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Import Mode:
+                  </label>
+                  <select
+                    value={bulkImportMode}
+                    onChange={(e) => setBulkImportMode(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                  >
+                    <option value="append">➕ Append to existing slides (Keep current slides)</option>
+                    <option value="replace">🔄 Replace all slides (Start fresh with new list)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Slide Layout Style:
+                  </label>
+                  <select
+                    value={bulkTargetTemplate}
+                    onChange={(e) => setBulkTargetTemplate(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                  >
+                    {SLIDE_LAYOUTS.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.name} ({layout.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApplyBulkImport}
+                disabled={parsedBulkSlides.length === 0}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <Zap className="w-4 h-4 fill-slate-950" />
+                <span>
+                  {parsedBulkSlides.length > 0
+                    ? `Import & Populate ${parsedBulkSlides.length} Slides`
+                    : "Enter Slide Text to Import"}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

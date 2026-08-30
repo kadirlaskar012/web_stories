@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Newsreader } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { getSiteSettings } from "@/lib/settings";
 
@@ -55,14 +56,34 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getSiteSettings();
+
   return (
-    <html lang="en" className={`${inter.variable} ${newsreader.variable}`}>
-      <body className="font-sans antialiased bg-white text-gray-900">
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${newsreader.variable}`}>
+      <body suppressHydrationWarning className="font-sans antialiased bg-white text-gray-900">
+        {settings.ga_id && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${settings.ga_id}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${settings.ga_id}', {
+                  page_path: window.location.pathname,
+                });
+              `}
+            </Script>
+          </>
+        )}
         {children}
       </body>
     </html>
