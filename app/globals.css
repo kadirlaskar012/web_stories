@@ -300,3 +300,22 @@ body {
   animation: storyPanDown var(--story-duration, 7s) ease-out forwards;
   will-change: transform;
 }
+
+/* ─── 24. Ultra Performance & DOM Virtualization Utilities ──────────────── */
+.story-feed-grid {
+  content-visibility: auto;
+  contain-intrinsic-size: 280px 400px;
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Instant Link Feedback & Smooth Hover */
+.story-card-premium {
+  contain: paint layout;
+  transform: translateZ(0);
+}

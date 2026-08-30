@@ -3,6 +3,8 @@ import { Inter, Newsreader } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { getSiteSettings } from "@/lib/settings";
+import { SpeculationRules } from "@/components/seo/SpeculationRules";
+import { ServiceWorkerRegister } from "@/components/seo/ServiceWorkerRegister";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -66,6 +68,8 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${newsreader.variable}`}>
       <body suppressHydrationWarning className="font-sans antialiased bg-white text-gray-900">
+        <SpeculationRules />
+        <ServiceWorkerRegister />
         {settings.ga_id && (
           <>
             <Script

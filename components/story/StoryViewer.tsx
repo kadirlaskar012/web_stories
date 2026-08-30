@@ -163,9 +163,20 @@ export function StoryViewer({
     trackEvent("story_open", 0, { title });
   }, [trackEvent, title]);
 
-  // ─── 14. Close Handler ─────────────────────────────────────────────────────
+  // ─── 14. Close Handler & Instant Exit Engine ──────────────────────────────
+  const [isClosing, setIsClosing] = useState<boolean>(false);
+
+  // Pre-warm destination routes on mount so closing is 100% instant (0ms lag)
+  useEffect(() => {
+    if (categorySlug) {
+      router.prefetch(`/category/${categorySlug}`);
+    }
+    router.prefetch("/");
+  }, [categorySlug, router]);
+
   const handleClose = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
+    setIsClosing(true);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -175,7 +186,7 @@ export function StoryViewer({
       onClose();
     } else if (categorySlug) {
       router.push(`/category/${categorySlug}`);
-    } else if (window.history.length > 1) {
+    } else if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
       router.push("/");
@@ -287,18 +298,77 @@ export function StoryViewer({
     return () => cancelAnimationFrame(rafRef.current);
   }, [currentPage, isPaused, isHolding, isCompleted, duration, goNext]);
 
-  // ─── 12. Media Preloading (Preload Next Page's Media) ──────────────────────
+  // ─── 12. Smart Multi-Slide & Next-Story Media Pre-buffering Engine ─────────
+  // 1. High Priority Preload & GPU Decode for Immediate Next Slides (N+1, N+2)
   useEffect(() => {
+    // Next Slide (N+1)
     if (currentPage < pages.length - 1) {
-      const nextPage = pages[currentPage + 1];
-      const nextBg = nextPage?.elements.find((e) => e.type === "BACKGROUND");
-      const nextSrc = (nextBg?.content as any)?.src;
-      if (nextSrc) {
-        const img = new window.Image();
-        img.src = nextSrc;
+      const next1 = pages[currentPage + 1];
+      const nextBg1 = next1?.elements.find((e) => e.type === "BACKGROUND");
+      const nextSrc1 = (nextBg1?.content as any)?.src;
+      if (nextSrc1) {
+        const img1 = new window.Image();
+        img1.src = nextSrc1;
+        if ("decode" in img1) {
+          img1.decode().catch(() => {});
+        }
+      }
+    }
+    // Following Slide (N+2)
+    if (currentPage < pages.length - 2) {
+      const next2 = pages[currentPage + 2];
+      const nextBg2 = next2?.elements.find((e) => e.type === "BACKGROUND");
+      const nextSrc2 = (nextBg2?.content as any)?.src;
+      if (nextSrc2) {
+        const img2 = new window.Image();
+        img2.src = nextSrc2;
+        if ("decode" in img2) {
+          img2.decode().catch(() => {});
+        }
       }
     }
   }, [currentPage, pages]);
+
+  // 2. Comprehensive All-Slides Background Preloader & GPU Image Decoding
+  useEffect(() => {
+    const preloadAllStoryMedia = () => {
+      pages.forEach((p, idx) => {
+        if (idx === 0) return;
+        const bgEl = p.elements.find((e) => e.type === "BACKGROUND");
+        const src = (bgEl?.content as any)?.src;
+        if (src) {
+          const img = new window.Image();
+          img.src = src;
+          if ("decode" in img) {
+            img.decode().catch(() => {});
+          }
+        }
+      });
+    };
+
+    if (typeof window !== "undefined") {
+      if ("requestIdleCallback" in window) {
+        (window as any).requestIdleCallback(preloadAllStoryMedia);
+      } else {
+        const t = setTimeout(preloadAllStoryMedia, 500);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [pages]);
+
+  // 3. Next Story in Queue Buffer (Prefetch when reaching halfway or final slides)
+  useEffect(() => {
+    if (nextStory?.slug && currentPage >= Math.floor(pages.length / 2)) {
+      router.prefetch(`/story/${nextStory.slug}`);
+      if (nextStory.coverImage) {
+        const nextStoryImg = new window.Image();
+        nextStoryImg.src = nextStory.coverImage;
+        if ("decode" in nextStoryImg) {
+          nextStoryImg.decode().catch(() => {});
+        }
+      }
+    }
+  }, [currentPage, pages.length, nextStory, router]);
 
   // ─── 11. Background / Visibility API (Pause when Tab Hidden) ───────────────
   useEffect(() => {
@@ -494,7 +564,9 @@ export function StoryViewer({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-2xl select-none"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-2xl select-none transition-all duration-150 ${
+        isClosing ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
+      }`}
       role="region"
       aria-label="Google Web Story Player"
     >
