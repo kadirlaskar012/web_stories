@@ -177,6 +177,7 @@ export default async function StoryPage({ params }: Props) {
                 title={story.title}
                 authorName={story.author.name}
                 publisherName={settings.publisher_name}
+                categorySlug={story.category.slug}
                 nextStory={formattedNextStory}
               />
             </div>

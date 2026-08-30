@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { StoryViewer, NextStoryInfo } from "@/components/story/StoryViewer";
 import { StoryPage, StoryElement } from "@prisma/client";
-import { Play, Maximize2 } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 
 type PageWithElements = StoryPage & { elements: StoryElement[] };
 
@@ -12,6 +12,7 @@ interface Props {
   title: string;
   authorName: string;
   publisherName: string;
+  categorySlug?: string;
   nextStory?: NextStoryInfo | null;
 }
 
@@ -21,6 +22,7 @@ export default function StoryViewerWrapper({
   title,
   authorName,
   publisherName,
+  categorySlug,
   nextStory,
 }: Props) {
   const [fullscreen, setFullscreen] = useState(false);
@@ -43,8 +45,9 @@ export default function StoryViewerWrapper({
           title={title}
           authorName={authorName}
           publisherName={publisherName}
+          categorySlug={categorySlug}
           nextStory={nextStory}
-          showCloseButton={false}
+          showCloseButton={true}
         />
 
         {/* Fullscreen Trigger Pill (Top Right) */}
@@ -73,6 +76,7 @@ export default function StoryViewerWrapper({
             title={title}
             authorName={authorName}
             publisherName={publisherName}
+            categorySlug={categorySlug}
             nextStory={nextStory}
             onClose={() => setFullscreen(false)}
             showCloseButton={true}

@@ -41,6 +41,7 @@ interface StoryViewerProps {
   title: string;
   authorName: string;
   publisherName: string;
+  categorySlug?: string;
   nextStory?: NextStoryInfo | null;
   onClose?: () => void;
   showCloseButton?: boolean;
@@ -52,6 +53,7 @@ export function StoryViewer({
   title,
   authorName,
   publisherName = "USA DAILY",
+  categorySlug,
   nextStory,
   onClose,
   showCloseButton = true,
@@ -122,12 +124,14 @@ export function StoryViewer({
     trackEvent("exit", currentPage);
     if (onClose) {
       onClose();
+    } else if (categorySlug) {
+      router.push(`/category/${categorySlug}`);
     } else if (window.history.length > 1) {
       router.back();
     } else {
-      router.push("/stories");
+      router.push("/");
     }
-  }, [onClose, router, trackEvent, currentPage]);
+  }, [onClose, categorySlug, router, trackEvent, currentPage]);
 
   // ─── 4 & 5. Navigation (Next / Previous) ───────────────────────────────────
   const goNext = useCallback(() => {
@@ -474,18 +478,26 @@ export function StoryViewer({
           }}
         />
 
-        {/* Background Image with Instant Rendering & Fallback */}
+        {/* Background Image with Instant Rendering & Fallback & Ken Burns Animation */}
         {bgElement && (bgElement.content as any)?.src && layoutType !== "split-screen-card" && layoutType !== "polaroid-photo-frame" && (
-          <div className="absolute inset-0">
+          <div
+            className={`absolute inset-0 overflow-hidden ${
+              imgStyle.animation && imgStyle.animation !== "none" ? `story-anim-${imgStyle.animation}` : ""
+            }`}
+            style={{
+              ["--story-duration" as any]: `${page.duration || 7}s`,
+            }}
+          >
             <Image
               src={(bgElement.content as any).src}
               alt={headingText || "Story Background"}
               fill
               sizes="(max-width: 768px) 100vw, 450px"
-              className="object-cover opacity-90"
+              className="object-cover"
               style={{
-                transform: `scale(${imgStyle.scale || 1})`,
+                transform: imgStyle.animation && imgStyle.animation !== "none" ? undefined : `scale(${imgStyle.scale || 1})`,
                 objectPosition: imgStyle.objectPosition || "center",
+                opacity: imgStyle.opacity !== undefined ? imgStyle.opacity : 0.9,
               }}
               priority={currentPage === 0}
               quality={85}
@@ -600,6 +612,7 @@ export function StoryViewer({
                     textDecoration: hStyle.textDecoration || "none",
                     textAlign: hStyle.textAlign || "left",
                     color: hStyle.color || "#ffffff",
+                    opacity: hStyle.opacity !== undefined ? hStyle.opacity : 1,
                   }}
                   className="leading-tight uppercase drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]"
                 >
@@ -613,6 +626,7 @@ export function StoryViewer({
                     textDecoration: dStyle.textDecoration || "none",
                     textAlign: dStyle.textAlign || "left",
                     color: dStyle.color || "#e2e8f0",
+                    opacity: dStyle.opacity !== undefined ? dStyle.opacity : 1,
                   }}
                   className="leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3"
                 >

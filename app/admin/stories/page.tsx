@@ -5,7 +5,7 @@ import { StoryStatus } from "@prisma/client";
 import { formatDateShort } from "@/lib/utils";
 import { Plus, Edit, Eye, Filter, Sparkles, Layers } from "lucide-react";
 import { ServerPagination } from "@/components/ui/Pagination";
-import StoryActions from "./StoryActions";
+import { StoriesTableClient } from "@/components/admin/StoriesTableClient";
 
 export const dynamic = "force-dynamic";
 
@@ -139,166 +139,26 @@ export default async function AdminStoriesPage({ searchParams }: Props) {
         </form>
       </div>
 
-      {/* Responsive Table & Mobile Cards */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        {/* Desktop Table View (>= md) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-bold uppercase tracking-wider">
-                <th className="text-left px-5 py-3.5">Headline</th>
-                <th className="text-left px-4 py-3.5">Reporter</th>
-                <th className="text-left px-4 py-3.5">Category</th>
-                <th className="text-left px-4 py-3.5">Status</th>
-                <th className="text-left px-4 py-3.5">Updated</th>
-                <th className="text-right px-5 py-3.5">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {stories.length > 0 ? (
-                stories.map((story) => (
-                  <tr key={story.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div>
-                        <p className="font-extrabold text-slate-900 line-clamp-1 max-w-sm">
-                          {story.title}
-                        </p>
-                        {story.isFeatured && (
-                          <span className="text-[10px] font-black text-red-600 uppercase tracking-wider">
-                            ★ Featured Banner
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">
-                      {story.author.name}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black text-white"
-                        style={{ backgroundColor: story.category.color || "#dc2626" }}
-                      >
-                        {story.category.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={story.status} />
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px] whitespace-nowrap">
-                      {formatDateShort(story.updatedAt)}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Link
-                          href={`/admin/stories/${story.id}/edit`}
-                          className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                          title="Edit Story"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Link>
-                        {story.status === StoryStatus.PUBLISHED && (
-                          <a
-                            href={`/story/${story.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="View Public Story"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </a>
-                        )}
-                        <StoryActions story={{ id: story.id, title: story.title, status: story.status }} />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-xs text-slate-500">
-                    No stories found.{" "}
-                    <Link href="/admin/stories/new" className="text-red-600 font-bold hover:underline">
-                      Create your first story
-                    </Link>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Responsive Table & Mobile Cards with Multi-Select & 3-Dots Dropdown */}
+      <StoriesTableClient stories={stories as any} />
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-4 py-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex justify-center">
+          <ServerPagination
+            page={page}
+            totalPages={totalPages}
+            buildHref={(p) => {
+              const sp = new URLSearchParams();
+              if (search) sp.set("search", search);
+              if (status) sp.set("status", status);
+              if (categoryId) sp.set("category", categoryId);
+              sp.set("page", String(p));
+              return `/admin/stories?${sp}`;
+            }}
+          />
         </div>
-
-        {/* Mobile Cards View (< md) */}
-        <div className="md:hidden divide-y divide-slate-100">
-          {stories.length > 0 ? (
-            stories.map((story) => (
-              <div key={story.id} className="p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span
-                    className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black text-white"
-                    style={{ backgroundColor: story.category.color || "#dc2626" }}
-                  >
-                    {story.category.name}
-                  </span>
-                  <StatusBadge status={story.status} />
-                </div>
-
-                <h3 className="font-extrabold text-sm text-slate-900 line-clamp-2">
-                  {story.title}
-                </h3>
-
-                <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-                  <span>By {story.author.name}</span>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/admin/stories/${story.id}/edit`}
-                      className="p-2 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </Link>
-                    {story.status === StoryStatus.PUBLISHED && (
-                      <a
-                        href={`/story/${story.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs flex items-center gap-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View</span>
-                      </a>
-                    )}
-                    <StoryActions story={{ id: story.id, title: story.title, status: story.status }} />
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-8 text-center text-xs text-slate-500">
-              No stories found.{" "}
-              <Link href="/admin/stories/new" className="text-red-600 font-bold hover:underline">
-                Create a story
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-4 py-4 border-t border-slate-100 flex justify-center">
-            <ServerPagination
-              page={page}
-              totalPages={totalPages}
-              buildHref={(p) => {
-                const sp = new URLSearchParams();
-                if (search) sp.set("search", search);
-                if (status) sp.set("status", status);
-                if (categoryId) sp.set("category", categoryId);
-                sp.set("page", String(p));
-                return `/admin/stories?${sp}`;
-              }}
-            />
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

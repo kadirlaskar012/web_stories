@@ -50,7 +50,17 @@ import {
   Type,
   Palette,
   Sliders,
+  Sparkles,
 } from "lucide-react";
+
+export type ImageAnimationType =
+  | "none"
+  | "zoom-in"
+  | "zoom-out"
+  | "pan-left"
+  | "pan-right"
+  | "pan-up"
+  | "pan-down";
 
 export interface TextStyleConfig {
   fontSize?: number;
@@ -59,11 +69,14 @@ export interface TextStyleConfig {
   textDecoration?: "none" | "underline";
   textAlign?: "left" | "center" | "right";
   color?: string;
+  opacity?: number;
   positionY?: "top" | "center" | "bottom";
 }
 
 export interface ImageStyleConfig {
   scale?: number;
+  opacity?: number;
+  animation?: ImageAnimationType;
   objectPosition?: "center" | "top" | "bottom";
 }
 
@@ -353,12 +366,35 @@ export function StoryWizard({
   const activeSlide = slides[activeSlideIndex] || slides[0];
   const activeLayout = getLayoutById(selectedTemplate);
 
+  const handleDeleteMedia = async (target: "cover" | "slide") => {
+    const urlToDelete = target === "cover" ? coverImage : activeSlide.backgroundMedia;
+    if (!urlToDelete) return;
+
+    if (target === "cover") {
+      setCoverImage("");
+    } else {
+      updateSlide(activeSlideIndex, { backgroundMedia: "" });
+    }
+
+    try {
+      await fetch("/api/media/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlToDelete }),
+      });
+    } catch (err) {
+      console.error("Delete media failed:", err);
+    }
+  };
+
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     target: "cover" | "slide"
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const oldUrl = target === "cover" ? coverImage : activeSlide.backgroundMedia;
 
     setUploading(true);
     setError("");
@@ -387,10 +423,20 @@ export function StoryWizard({
       } else {
         updateSlide(activeSlideIndex, { backgroundMedia: data.url });
       }
+
+      // Auto-delete previous image from Cloudinary when replaced
+      if (oldUrl && oldUrl !== data.url && (oldUrl.includes("cloudinary.com") || oldUrl.startsWith("/uploads/"))) {
+        fetch("/api/media/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: oldUrl }),
+        }).catch(() => {});
+      }
     } catch (err: any) {
       setError(err.message || "Failed to upload file");
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -845,15 +891,52 @@ export function StoryWizard({
                       accept="image/*"
                       className="hidden"
                     />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{uploading ? "Uploading..." : "Browse PC"}</span>
-                    </button>
+
+                    {coverImage ? (
+                      <div className="flex items-center gap-2.5 p-2 bg-slate-50 rounded-2xl border border-slate-200">
+                        <div className="relative w-10 h-14 rounded-xl overflow-hidden shadow border border-slate-300 flex-shrink-0 bg-slate-900">
+                          <Image src={coverImage} alt="Cover" fill className="object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Cover Set
+                          </span>
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={uploading}
+                              className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                              title="Change Cover Photo"
+                            >
+                              <RefreshCw className={`w-2.5 h-2.5 ${uploading ? "animate-spin" : ""}`} />
+                              <span>Change</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMedia("cover")}
+                              disabled={uploading}
+                              className="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold flex items-center gap-1 transition-all"
+                              title="Delete Cover Photo"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{uploading ? "Uploading..." : "Browse PC"}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -994,36 +1077,138 @@ export function StoryWizard({
                     />
                   </div>
 
-                  {/* Photo Uploader */}
+                  {/* Photo Uploader with In-Form Live Thumbnail, Replace & Delete */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                       Editorial Photo (Local PC Browse or Web URL)
                     </label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="text"
-                        value={activeSlide.backgroundMedia}
-                        onChange={(e) => updateSlide(activeSlideIndex, { backgroundMedia: e.target.value })}
-                        placeholder="https://images.unsplash.com/... or browse PC"
-                        className="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                      />
 
-                      <input
-                        type="file"
-                        ref={slideFileInputRef}
-                        onChange={(e) => handleFileUpload(e, "slide")}
-                        accept="image/*"
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => slideFileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                    {activeSlide.backgroundMedia ? (
+                      <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="relative w-14 h-20 rounded-xl overflow-hidden shadow border border-slate-300 flex-shrink-0 bg-slate-900">
+                          <Image
+                            src={activeSlide.backgroundMedia}
+                            alt="Slide Preview"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-black text-slate-800 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Slide #{activeSlideIndex + 1} Photo Set
+                            </span>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={activeSlide.backgroundMedia}
+                            onChange={(e) => updateSlide(activeSlideIndex, { backgroundMedia: e.target.value })}
+                            placeholder="Image URL..."
+                            className="w-full px-2.5 py-1 rounded-lg border border-slate-200 text-[10px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-red-500 font-mono"
+                          />
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              ref={slideFileInputRef}
+                              onChange={(e) => handleFileUpload(e, "slide")}
+                              accept="image/*"
+                              className="hidden"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => slideFileInputRef.current?.click()}
+                              disabled={uploading}
+                              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${uploading ? "animate-spin" : ""}`} />
+                              <span>{uploading ? "Uploading..." : "Replace Photo"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMedia("slide")}
+                              disabled={uploading}
+                              className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold flex items-center gap-1.5 transition-all"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete Photo</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={activeSlide.backgroundMedia}
+                          onChange={(e) => updateSlide(activeSlideIndex, { backgroundMedia: e.target.value })}
+                          placeholder="https://images.unsplash.com/... or browse PC"
+                          className="flex-1 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
+                        />
+
+                        <input
+                          type="file"
+                          ref={slideFileInputRef}
+                          onChange={(e) => handleFileUpload(e, "slide")}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => slideFileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{uploading ? "Uploading..." : "Browse PC"}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Motion Animation & Opacity Quick Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div>
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        Image Motion (Ken Burns)
+                      </label>
+                      <select
+                        value={activeSlide.imageStyle?.animation || "none"}
+                        onChange={(e) => updateImageStyle({ animation: e.target.value as any })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-500"
                       >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{uploading ? "Uploading..." : "Browse PC"}</span>
-                      </button>
+                        <option value="none">Static (No Animation)</option>
+                        <option value="zoom-in">🔍 Slow Zoom In</option>
+                        <option value="zoom-out">🔎 Slow Zoom Out</option>
+                        <option value="pan-left">⬅️ Pan Right to Left</option>
+                        <option value="pan-right">➡️ Pan Left to Right</option>
+                        <option value="pan-up">⬆️ Pan Down to Top</option>
+                        <option value="pan-down">⬇️ Pan Top to Down</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+                          Photo Opacity
+                        </span>
+                        <span className="text-emerald-600 font-mono">
+                          {Math.round((activeSlide.imageStyle?.opacity !== undefined ? activeSlide.imageStyle.opacity : 0.9) * 100)}%
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={1}
+                        step={0.05}
+                        value={activeSlide.imageStyle?.opacity !== undefined ? activeSlide.imageStyle.opacity : 0.9}
+                        onChange={(e) => updateImageStyle({ opacity: parseFloat(e.target.value) })}
+                        className="w-full accent-emerald-600"
+                      />
                     </div>
                   </div>
 
@@ -1490,12 +1675,53 @@ export function StoryWizard({
                       />
                     ))}
                   </div>
+
+                  {/* Text Opacity Slider */}
+                  <div className="flex items-center justify-between text-xs pt-1.5 border-t border-slate-800">
+                    <span className="text-slate-300 font-bold flex items-center gap-1">
+                      <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                      Text Opacity: {Math.round((selectedElement === "headline" ? (hStyle.opacity !== undefined ? hStyle.opacity : 1) : (dStyle.opacity !== undefined ? dStyle.opacity : 1)) * 100)}%
+                    </span>
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={1}
+                      step={0.05}
+                      value={selectedElement === "headline" ? (hStyle.opacity !== undefined ? hStyle.opacity : 1) : (dStyle.opacity !== undefined ? dStyle.opacity : 1)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (selectedElement === "headline") {
+                          updateHeadlineStyle({ opacity: val });
+                        } else {
+                          updateDescriptionStyle({ opacity: val });
+                        }
+                      }}
+                      className="w-28 accent-blue-500"
+                    />
+                  </div>
                 </div>
               )}
 
               {/* Image Controls */}
               {selectedElement === "image" && (
                 <div className="space-y-2 pt-1 border-t border-slate-800">
+                  {/* Image Opacity Slider */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300 font-bold flex items-center gap-1">
+                      <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                      Photo Opacity: {Math.round((imgStyle.opacity !== undefined ? imgStyle.opacity : 0.9) * 100)}%
+                    </span>
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={1}
+                      step={0.05}
+                      value={imgStyle.opacity !== undefined ? imgStyle.opacity : 0.9}
+                      onChange={(e) => updateImageStyle({ opacity: parseFloat(e.target.value) })}
+                      className="w-28 accent-emerald-500"
+                    />
+                  </div>
+
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-300 font-bold flex items-center gap-1">
                       <ZoomIn className="w-3.5 h-3.5" />
@@ -1529,6 +1755,38 @@ export function StoryWizard({
                       </button>
                     ))}
                   </div>
+
+                  {/* Ken Burns Motion Animation */}
+                  <div className="space-y-1.5 pt-1.5 border-t border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-300 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      Motion Animation (Ken Burns):
+                    </span>
+                    <div className="grid grid-cols-4 gap-1">
+                      {[
+                        { id: "none", label: "Static" },
+                        { id: "zoom-in", label: "Zoom In" },
+                        { id: "zoom-out", label: "Zoom Out" },
+                        { id: "pan-left", label: "Pan Left" },
+                        { id: "pan-right", label: "Pan Right" },
+                        { id: "pan-up", label: "Pan Up" },
+                        { id: "pan-down", label: "Pan Down" },
+                      ].map((anim) => (
+                        <button
+                          key={anim.id}
+                          type="button"
+                          onClick={() => updateImageStyle({ animation: anim.id as any })}
+                          className={`px-1.5 py-1 rounded-lg text-[9.5px] font-bold text-center transition-all ${
+                            (imgStyle.animation || "none") === anim.id
+                              ? "bg-red-600 text-white shadow"
+                              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                          }`}
+                        >
+                          {anim.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1550,21 +1808,23 @@ export function StoryWizard({
                       : "#0c0d12",
                 }}
               >
-                {/* Background Media with Zoom/Scale */}
+                {/* Background Media with Zoom/Scale & Ken Burns Motion */}
                 {activeSlide.backgroundMedia && selectedTemplate !== "split-screen-card" && selectedTemplate !== "polaroid-photo-frame" && (
                   <div
-                    className="absolute inset-0 cursor-pointer"
+                    className={`absolute inset-0 cursor-pointer overflow-hidden ${
+                      imgStyle.animation && imgStyle.animation !== "none" ? `story-anim-${imgStyle.animation}` : ""
+                    }`}
                     onClick={() => setSelectedElement("image")}
                   >
                     <Image
                       src={activeSlide.backgroundMedia}
                       alt=""
                       fill
-                      className="object-cover transition-transform duration-300"
+                      className="object-cover"
                       style={{
-                        transform: `scale(${imgStyle.scale || 1})`,
+                        transform: imgStyle.animation && imgStyle.animation !== "none" ? undefined : `scale(${imgStyle.scale || 1})`,
                         objectPosition: imgStyle.objectPosition || "center",
-                        opacity: selectedTemplate === "glassmorphism-card" ? 0.6 : 0.85,
+                        opacity: imgStyle.opacity !== undefined ? imgStyle.opacity : (selectedTemplate === "glassmorphism-card" ? 0.6 : 0.9),
                       }}
                       priority
                     />
@@ -1632,6 +1892,7 @@ export function StoryWizard({
                           textDecoration: hStyle.textDecoration || "none",
                           textAlign: hStyle.textAlign || "left",
                           color: hStyle.color || (selectedTemplate === "split-screen-card" || selectedTemplate === "polaroid-photo-frame" ? "#0f172a" : "#ffffff"),
+                          opacity: hStyle.opacity !== undefined ? hStyle.opacity : 1,
                         }}
                         className="leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]"
                       >
@@ -1657,6 +1918,7 @@ export function StoryWizard({
                             textDecoration: dStyle.textDecoration || "none",
                             textAlign: dStyle.textAlign || "left",
                             color: dStyle.color || (selectedTemplate === "split-screen-card" || selectedTemplate === "polaroid-photo-frame" ? "#334155" : "#e2e8f0"),
+                            opacity: dStyle.opacity !== undefined ? dStyle.opacity : 1,
                           }}
                           className="leading-relaxed drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)] line-clamp-3"
                         >

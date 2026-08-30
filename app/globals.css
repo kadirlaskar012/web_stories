@@ -215,3 +215,88 @@ body {
 .animate-pulse-ring {
   animation: pulse-ring 2.5s infinite ease-in-out;
 }
+
+/* ─── Web Stories Ken Burns Image Motion Animations ──────────────────────── */
+@keyframes storyZoomIn {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes storyZoomOut {
+  0% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes storyPanLeft {
+  0% {
+    transform: scale(1.15) translateX(4%);
+  }
+  100% {
+    transform: scale(1.15) translateX(-4%);
+  }
+}
+
+@keyframes storyPanRight {
+  0% {
+    transform: scale(1.15) translateX(-4%);
+  }
+  100% {
+    transform: scale(1.15) translateX(4%);
+  }
+}
+
+@keyframes storyPanUp {
+  0% {
+    transform: scale(1.15) translateY(4%);
+  }
+  100% {
+    transform: scale(1.15) translateY(-4%);
+  }
+}
+
+@keyframes storyPanDown {
+  0% {
+    transform: scale(1.15) translateY(-4%);
+  }
+  100% {
+    transform: scale(1.15) translateY(4%);
+  }
+}
+
+.story-anim-zoom-in {
+  animation: storyZoomIn var(--story-duration, 7s) ease-out forwards;
+  will-change: transform;
+}
+
+.story-anim-zoom-out {
+  animation: storyZoomOut var(--story-duration, 7s) ease-out forwards;
+  will-change: transform;
+}
+
+.story-anim-pan-left {
+  animation: storyPanLeft var(--story-duration, 7s) ease-out forwards;
+  will-change: transform;
+}
+
+.story-anim-pan-right {
+  animation: storyPanRight var(--story-duration, 7s) ease-out forwards;
+  will-change: transform;
+}
+
+.story-anim-pan-up {
+  animation: storyPanUp var(--story-duration, 7s) ease-out forwards;
+  will-change: transform;
+}
+
+.story-anim-pan-down {
+  animation: storyPanDown var(--story-duration, 7s) ease-out forwards;
+  will-change: transform;
+}
