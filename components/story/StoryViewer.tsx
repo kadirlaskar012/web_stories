@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { StoryPage, StoryElement } from "@prisma/client";
@@ -78,9 +78,52 @@ export function StoryViewer({
   const holdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>(`sess_${Math.random().toString(36).slice(2, 10)}`);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const page = pages[currentPage];
   const duration = (page?.duration || 7) * 1000;
+
+  // Resolve background audio for story or page
+  const activeAudioUrl = useMemo(() => {
+    const curBg = page?.elements?.find((e: any) => e.type === "BACKGROUND");
+    const pageAudio = (curBg?.content as any)?.layoutMeta?.backgroundAudio || (curBg?.content as any)?.layoutMeta?.audioUrl;
+    if (pageAudio) return pageAudio;
+
+    const firstBg = pages[0]?.elements?.find((e: any) => e.type === "BACKGROUND");
+    return (firstBg?.content as any)?.layoutMeta?.backgroundAudio || (firstBg?.content as any)?.layoutMeta?.audioUrl || "";
+  }, [page, pages]);
+
+  const userMutedExplicitlyRef = useRef<boolean>(false);
+
+  const attemptAutoPlayAudio = useCallback(() => {
+    if (!activeAudioUrl || !audioRef.current || userMutedExplicitlyRef.current) return;
+    audioRef.current
+      .play()
+      .then(() => {
+        setIsMuted(false);
+      })
+      .catch(() => {
+        // Browser requires a user tap/click first
+      });
+  }, [activeAudioUrl]);
+
+  // Attempt initial autoplay on mount
+  useEffect(() => {
+    if (activeAudioUrl) {
+      attemptAutoPlayAudio();
+    }
+  }, [activeAudioUrl, attemptAutoPlayAudio]);
+
+  // Audio Playback Sync
+  useEffect(() => {
+    if (!audioRef.current || !activeAudioUrl) return;
+
+    if (isMuted || isPaused || isHolding || isCompleted) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [isMuted, isPaused, isHolding, isCompleted, activeAudioUrl]);
 
   // ─── 20. Real Analytics Tracker Dispatcher ────────────────────────────────
   const trackEvent = useCallback(
@@ -311,6 +354,9 @@ export function StoryViewer({
     }
 
     // 4 & 5. Left 35% / Right 65% tap navigation
+    if (isMuted && !userMutedExplicitlyRef.current && activeAudioUrl) {
+      attemptAutoPlayAudio();
+    }
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
       const x = e.changedTouches[0].clientX - rect.left;
@@ -323,6 +369,9 @@ export function StoryViewer({
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isMuted && !userMutedExplicitlyRef.current && activeAudioUrl) {
+      attemptAutoPlayAudio();
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     if (x < rect.width * 0.35) {
@@ -351,7 +400,16 @@ export function StoryViewer({
   // ─── 10. Mute Toggle ───────────────────────────────────────────────────────
   const handleToggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsMuted((prev) => !prev);
+    setIsMuted((prev) => {
+      const nextMuted = !prev;
+      userMutedExplicitlyRef.current = nextMuted;
+      if (!nextMuted && audioRef.current && activeAudioUrl) {
+        audioRef.current.play().catch(() => {});
+      } else if (nextMuted && audioRef.current) {
+        audioRef.current.pause();
+      }
+      return nextMuted;
+    });
   };
 
   // ─── Share Handler ─────────────────────────────────────────────────────────
@@ -1044,6 +1102,17 @@ export function StoryViewer({
               Link copied to clipboard!
             </span>
           </div>
+        )}
+
+        {/* Background Audio Player */}
+        {activeAudioUrl && (
+          <audio
+            ref={audioRef}
+            src={activeAudioUrl}
+            loop
+            preload="auto"
+            className="hidden"
+          />
         )}
       </div>
     </div>

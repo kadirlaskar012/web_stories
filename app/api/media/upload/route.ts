@@ -43,11 +43,18 @@ export async function POST(req: NextRequest) {
       "image/svg+xml",
       "video/mp4",
       "video/webm",
+      "audio/mpeg",
+      "audio/mp3",
+      "audio/wav",
+      "audio/ogg",
+      "audio/aac",
+      "audio/m4a",
+      "audio/webm",
     ];
 
-    if (!validMimes.includes(file.type)) {
+    if (!validMimes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a|aac)$/i)) {
       return NextResponse.json(
-        { error: `Unsupported file type: ${file.type}. Allowed: JPG, PNG, WebP, GIF, MP4, WebM.` },
+        { error: `Unsupported file type: ${file.type}. Allowed: JPG, PNG, WebP, GIF, MP4, WebM, MP3, WAV, AAC, M4A.` },
         { status: 400 }
       );
     }
@@ -67,6 +74,8 @@ export async function POST(req: NextRequest) {
     let height: number | undefined;
     let format: string | undefined;
 
+    const isAudio = file.type.startsWith("audio") || !!file.name.match(/\.(mp3|wav|ogg|m4a|aac)$/i);
+
     if (isCloudinaryConfigured()) {
       // Upload to Cloudinary CDN
       const uploadResult = await new Promise<{
@@ -79,8 +88,8 @@ export async function POST(req: NextRequest) {
         cloudinary.uploader
           .upload_stream(
             {
-              resource_type: file.type.startsWith("video") ? "video" : "image",
-              folder: "webstories",
+              resource_type: isAudio ? "auto" : file.type.startsWith("video") ? "video" : "image",
+              folder: isAudio ? "webstories/audio" : "webstories",
               transformation: file.type.startsWith("image")
                 ? [{ quality: "auto", fetch_format: "auto" }]
                 : undefined,

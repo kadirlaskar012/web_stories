@@ -52,7 +52,36 @@ import {
   Sliders,
   Sparkles,
   Tag,
+  Music,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+
+export const AUDIO_PRESETS = [
+  { id: "none", name: "No Music (Silent)", url: "" },
+  {
+    id: "breaking-beat",
+    name: "🚨 Breaking News Pulse (High Energy)",
+    url: "https://actions.google.com/sounds/v1/science_fiction/ambient_loop.ogg",
+  },
+  {
+    id: "lofi-ambient",
+    name: "🎧 Lo-Fi Chill Ambient Focus",
+    url: "https://actions.google.com/sounds/v1/ambient/rain_heavy.ogg",
+  },
+  {
+    id: "tech-synth",
+    name: "⚡ Tech Innovation Synth Beat",
+    url: "https://actions.google.com/sounds/v1/science_fiction/teleport_device.ogg",
+  },
+  {
+    id: "dramatic-cinematic",
+    name: "🎬 Dramatic Tension & Pulse",
+    url: "https://actions.google.com/sounds/v1/horror/creepy_drone.ogg",
+  },
+];
 
 export type ImageAnimationType =
   | "none"
@@ -163,6 +192,15 @@ export function StoryWizard({
     initialStory?.tags?.map((t: any) => t.tag?.name).join(", ") || "breaking, news, usa, wildfire"
   );
   const [isFeatured, setIsFeatured] = useState(initialStory?.isFeatured ?? true);
+
+  // Background Audio State
+  const [backgroundAudio, setBackgroundAudio] = useState<string>(() => {
+    const firstBg = initialStory?.pages?.[0]?.elements?.find((e: any) => e.type === "BACKGROUND");
+    return (firstBg?.content as any)?.layoutMeta?.backgroundAudio || (firstBg?.content as any)?.layoutMeta?.audioUrl || "";
+  });
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ─── Slide Builder State ─────────────────────────────────────────────────
   const [slides, setSlides] = useState<SlideData[]>(() => {
@@ -441,6 +479,72 @@ export function StoryWizard({
     }
   };
 
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to upload audio file");
+
+      setBackgroundAudio(data.url);
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.src = data.url;
+      }
+    } catch (err: any) {
+      setError(err.message || "Audio upload failed");
+    } finally {
+      setUploading(false);
+      if (audioFileInputRef.current) audioFileInputRef.current.value = "";
+    }
+  };
+
+  const togglePreviewAudio = (url: string) => {
+    if (!url) return;
+    if (audioPlaying) {
+      previewAudioRef.current?.pause();
+      setAudioPlaying(false);
+    } else {
+      if (!previewAudioRef.current) {
+        previewAudioRef.current = new Audio(url);
+        previewAudioRef.current.onended = () => setAudioPlaying(false);
+        previewAudioRef.current.onerror = () => setAudioPlaying(false);
+      } else {
+        previewAudioRef.current.src = url;
+      }
+      previewAudioRef.current.play().then(() => setAudioPlaying(true)).catch(() => setAudioPlaying(false));
+    }
+  };
+
+  const handleDeleteAudio = async () => {
+    if (!backgroundAudio) return;
+    const old = backgroundAudio;
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      setAudioPlaying(false);
+    }
+    setBackgroundAudio("");
+    if (old.includes("cloudinary.com") || old.startsWith("/uploads/")) {
+      fetch("/api/media/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: old }),
+      }).catch(() => {});
+    }
+  };
+
   const updateSlide = (index: number, updates: Partial<SlideData>) => {
     setSlides((prev) => {
       const next = [...prev];
@@ -590,6 +694,7 @@ export function StoryWizard({
               headlineStyle: slide.headlineStyle,
               descriptionStyle: slide.descriptionStyle,
               imageStyle: slide.imageStyle,
+              backgroundAudio: backgroundAudio || undefined,
             },
           },
           position: { x: 0, y: 0 },
@@ -975,6 +1080,99 @@ export function StoryWizard({
                         ))}
                     </div>
                   )}
+                </div>
+
+                {/* Background Audio / Music Track */}
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Music className="w-3.5 h-3.5 text-purple-600" />
+                      Background Music / Audio Track (Increases Completion & Ranking)
+                    </label>
+                    {backgroundAudio && (
+                      <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Volume2 className="w-3 h-3" /> Audio Attached
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Preset Selector */}
+                    <div>
+                      <select
+                        value={AUDIO_PRESETS.find((p) => p.url === backgroundAudio)?.id || (backgroundAudio ? "custom" : "none")}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "custom") return;
+                          const preset = AUDIO_PRESETS.find((p) => p.id === val);
+                          const url = preset?.url || "";
+                          setBackgroundAudio(url);
+                          if (previewAudioRef.current) {
+                            previewAudioRef.current.pause();
+                            previewAudioRef.current.src = url;
+                          }
+                          setAudioPlaying(false);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                      >
+                        {AUDIO_PRESETS.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                        {backgroundAudio && !AUDIO_PRESETS.some((p) => p.url === backgroundAudio) && (
+                          <option value="custom">🎵 Custom Audio File Attached</option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Custom Audio Upload / Action Buttons */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={audioFileInputRef}
+                        onChange={handleAudioUpload}
+                        accept="audio/*,.mp3,.wav,.ogg,.m4a"
+                        className="hidden"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => audioFileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{uploading ? "Uploading Audio..." : "Upload MP3"}</span>
+                      </button>
+
+                      {backgroundAudio && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => togglePreviewAudio(backgroundAudio)}
+                            className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all ${
+                              audioPlaying
+                                ? "bg-purple-600 border-purple-600 text-white animate-pulse"
+                                : "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
+                            }`}
+                            title={audioPlaying ? "Pause Audio Preview" : "Play Audio Preview"}
+                          >
+                            {audioPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleDeleteAudio}
+                            className="p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition-all"
+                            title="Remove Audio Track"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
