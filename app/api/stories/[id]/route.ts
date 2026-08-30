@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { StoryStatus } from "@prisma/client";
@@ -142,6 +143,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }).catch(() => {});
     }
 
+    try {
+      revalidatePath("/");
+      revalidatePath("/stories");
+      revalidatePath("/trending");
+      revalidatePath("/latest");
+      if (updated.slug) {
+        revalidatePath(`/story/${updated.slug}`);
+      }
+    } catch {}
+
     return NextResponse.json(updated);
   } catch (err: any) {
     console.error("[STORIES_PUT]", err);
@@ -173,12 +184,33 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   });
 
+  try {
+    revalidatePath("/");
+    revalidatePath("/stories");
+    revalidatePath("/trending");
+    revalidatePath("/latest");
+    if (updated.slug) {
+      revalidatePath(`/story/${updated.slug}`);
+    }
+  } catch {}
+
   return NextResponse.json(updated);
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const story = await prisma.story.findUnique({ where: { id }, select: { slug: true } });
   await prisma.story.delete({ where: { id } });
+
+  try {
+    revalidatePath("/");
+    revalidatePath("/stories");
+    revalidatePath("/trending");
+    revalidatePath("/latest");
+    if (story?.slug) {
+      revalidatePath(`/story/${story.slug}`);
+    }
+  } catch {}
 
   return NextResponse.json({ success: true });
 }

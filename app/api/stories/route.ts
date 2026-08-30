@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { StoryStatus } from "@prisma/client";
@@ -158,6 +159,16 @@ export async function POST(req: NextRequest) {
         },
       }).catch(() => {});
     }
+
+    try {
+      revalidatePath("/");
+      revalidatePath("/stories");
+      revalidatePath("/trending");
+      revalidatePath("/latest");
+      if (story.slug) {
+        revalidatePath(`/story/${story.slug}`);
+      }
+    } catch {}
 
     return NextResponse.json(story, { status: 201 });
   } catch (err: any) {

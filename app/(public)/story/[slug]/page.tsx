@@ -27,7 +27,20 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const stories = await prisma.story.findMany({
+      where: { status: StoryStatus.PUBLISHED },
+      select: { slug: true },
+      take: 50,
+    });
+    return stories.map((s) => ({ slug: s.slug }));
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {

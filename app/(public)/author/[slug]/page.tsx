@@ -36,7 +36,18 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const authors = await prisma.author.findMany({
+      select: { slug: true },
+    });
+    return authors.map((a) => ({ slug: a.slug }));
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {

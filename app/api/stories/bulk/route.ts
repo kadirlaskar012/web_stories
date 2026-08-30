@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { StoryStatus } from "@prisma/client";
@@ -35,6 +36,13 @@ export async function POST(req: NextRequest) {
         },
       }).catch(() => {});
 
+      try {
+        revalidatePath("/");
+        revalidatePath("/stories");
+        revalidatePath("/trending");
+        revalidatePath("/latest");
+      } catch {}
+
       return NextResponse.json({
         success: true,
         message: `${storyIds.length} stories published successfully.`,
@@ -57,6 +65,13 @@ export async function POST(req: NextRequest) {
           entityId: storyIds.join(","),
         },
       }).catch(() => {});
+
+      try {
+        revalidatePath("/");
+        revalidatePath("/stories");
+        revalidatePath("/trending");
+        revalidatePath("/latest");
+      } catch {}
 
       return NextResponse.json({
         success: true,
@@ -81,6 +96,13 @@ export async function POST(req: NextRequest) {
         },
       }).catch(() => {});
 
+      try {
+        revalidatePath("/");
+        revalidatePath("/stories");
+        revalidatePath("/trending");
+        revalidatePath("/latest");
+      } catch {}
+
       return NextResponse.json({
         success: true,
         message: `${storyIds.length} stories archived.`,
@@ -100,6 +122,13 @@ export async function POST(req: NextRequest) {
           entityId: storyIds.join(","),
         },
       }).catch(() => {});
+
+      try {
+        revalidatePath("/");
+        revalidatePath("/stories");
+        revalidatePath("/trending");
+        revalidatePath("/latest");
+      } catch {}
 
       return NextResponse.json({
         success: true,

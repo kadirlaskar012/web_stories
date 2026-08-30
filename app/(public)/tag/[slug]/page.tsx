@@ -7,7 +7,7 @@ import { StoryStatus } from "@prisma/client";
 import type { Metadata } from "next";
 
 const PAGE_SIZE = 24;
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface Props {
   params: Promise<{ slug: string }>;

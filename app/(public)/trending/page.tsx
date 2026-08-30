@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "The most popular Web Stories right now — trending across travel, technology, lifestyle, and food.",
 };
 
-export const revalidate = 300;
+export const revalidate = 60;
 const PAGE_SIZE = 24;
 
 interface Props {

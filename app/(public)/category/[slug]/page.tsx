@@ -11,7 +11,18 @@ import type { Metadata } from "next";
 import { ChevronRight, ArrowLeft } from "lucide-react";
 
 const PAGE_SIZE = 24;
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  try {
+    const categories = await prisma.category.findMany({
+      select: { slug: true },
+    });
+    return categories.map((c) => ({ slug: c.slug }));
+  } catch {
+    return [];
+  }
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
