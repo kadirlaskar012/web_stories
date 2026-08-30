@@ -131,36 +131,52 @@ export function StoryViewer({
 
   // ─── 4 & 5. Navigation (Next / Previous) ───────────────────────────────────
   const goNext = useCallback(() => {
-    if (currentPage < pages.length - 1) {
-      trackEvent("page_complete", currentPage);
-      setCurrentPage((p) => p + 1);
-      setProgress(0);
-      trackEvent("page_view", currentPage + 1);
-    } else {
-      // 8. Story End
-      setIsCompleted(true);
-      setIsPaused(true);
-      trackEvent("story_complete", currentPage);
-    }
-  }, [currentPage, pages.length, trackEvent]);
+    cancelAnimationFrame(rafRef.current);
+    progressRef.current = 0;
+    setProgress(0);
+
+    setCurrentPage((curr) => {
+      if (curr < pages.length - 1) {
+        trackEvent("page_complete", curr);
+        const next = curr + 1;
+        trackEvent("page_view", next);
+        return next;
+      } else {
+        setIsCompleted(true);
+        setIsPaused(true);
+        trackEvent("story_complete", curr);
+        return curr;
+      }
+    });
+  }, [pages.length, trackEvent]);
 
   const goPrev = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    progressRef.current = 0;
+    setProgress(0);
+
     if (isCompleted) {
       setIsCompleted(false);
       setIsPaused(false);
       return;
     }
-    if (currentPage > 0) {
-      setCurrentPage((p) => p - 1);
-      setProgress(0);
-      trackEvent("nav_prev", currentPage - 1);
-    }
-  }, [currentPage, isCompleted, trackEvent]);
+
+    setCurrentPage((curr) => {
+      if (curr > 0) {
+        const prev = curr - 1;
+        trackEvent("nav_prev", prev);
+        return prev;
+      }
+      return curr;
+    });
+  }, [isCompleted, trackEvent]);
 
   const handleReplayStory = () => {
+    cancelAnimationFrame(rafRef.current);
+    progressRef.current = 0;
+    setProgress(0);
     setIsCompleted(false);
     setCurrentPage(0);
-    setProgress(0);
     setIsPaused(false);
     trackEvent("page_view", 0, { action: "replay" });
   };
@@ -170,6 +186,12 @@ export function StoryViewer({
     if (isPaused || isHolding || isCompleted) {
       cancelAnimationFrame(rafRef.current);
       return;
+    }
+
+    // Reset progress on page entry if it was at 1
+    if (progressRef.current >= 1) {
+      progressRef.current = 0;
+      setProgress(0);
     }
 
     const startProgress = progressRef.current;
@@ -182,13 +204,10 @@ export function StoryViewer({
       setProgress(p);
 
       if (p >= 1) {
-        if (currentPage < pages.length - 1) {
-          goNext();
-        } else {
-          setIsCompleted(true);
-          setIsPaused(true);
-          trackEvent("story_complete", currentPage);
-        }
+        cancelAnimationFrame(rafRef.current);
+        progressRef.current = 0;
+        setProgress(0);
+        goNext();
       } else {
         rafRef.current = requestAnimationFrame(animate);
       }
@@ -197,13 +216,7 @@ export function StoryViewer({
     rafRef.current = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(rafRef.current);
-  }, [currentPage, isPaused, isHolding, isCompleted, duration, goNext, pages.length, trackEvent]);
-
-  // Reset progress on page change
-  useEffect(() => {
-    progressRef.current = 0;
-    setProgress(0);
-  }, [currentPage]);
+  }, [currentPage, isPaused, isHolding, isCompleted, duration, goNext]);
 
   // ─── 12. Media Preloading (Preload Next Page's Media) ──────────────────────
   useEffect(() => {
